@@ -71,5 +71,9 @@ public class HrDataCenterApplication {
      */
     public static void main(String[] args) {
         SpringApplication.run(HrDataCenterApplication.class, args);
+        System.out.println("========================================");
+        System.out.println("人力资源数据中心系统启动成功！");
+        System.out.println("访问地址: http://localhost:8081");
+        System.out.println("========================================");
     }
 }
