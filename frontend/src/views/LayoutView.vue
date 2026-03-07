@@ -45,11 +45,13 @@
             <span>管理后台</span>
           </template>
           <el-menu-item index="/admin/users">用户管理</el-menu-item>
+          <el-menu-item index="/admin/departments">部门管理</el-menu-item>
           <el-menu-item index="/admin/categories">数据分类</el-menu-item>
           <el-menu-item index="/admin/data">数据管理</el-menu-item>
           <el-menu-item index="/admin/rules">预警规则</el-menu-item>
           <el-menu-item index="/admin/reports">报表管理</el-menu-item>
           <el-menu-item index="/admin/sync">数据同步</el-menu-item>
+          <el-menu-item index="/admin/logs">操作日志</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>
