@@ -1,12 +1,19 @@
 <template>
-  <router-view />
+    <router-view />
 </template>
 
 <script setup>
 </script>
 
 <style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
 #app {
-  min-height: 100vh;
+    width: 100%;
+    height: 100vh;
 }
 </style>

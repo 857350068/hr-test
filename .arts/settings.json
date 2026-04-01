@@ -1,0 +1,5 @@
+{
+    "java.compile.nullAnalysis.mode": "automatic",
+    "diffEditor.renderSideBySide": false,
+    "git.ignoreLimitWarning": true
+}

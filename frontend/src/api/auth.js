@@ -1,21 +1,22 @@
 import request from './request'
 
+/**
+ * 用户登录
+ */
 export function login(data) {
-  return request({ url: '/auth/login', method: 'post', data })
+    return request({
+        url: '/auth/login',
+        method: 'post',
+        data
+    })
 }
 
-export function register(data) {
-  return request({ url: '/auth/register', method: 'post', data })
-}
-
-export function getUserInfo() {
-  return request({ url: '/auth/info', method: 'get' })
-}
-
+/**
+ * 用户登出
+ */
 export function logout() {
-  return request({ url: '/auth/logout', method: 'post' })
-}
-
-export function changePassword(data) {
-  return request({ url: '/auth/change-password', method: 'post', data })
+    return request({
+        url: '/auth/logout',
+        method: 'post'
+    })
 }
