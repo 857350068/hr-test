@@ -13,9 +13,9 @@
                 </div>
 
                 <div class="clock-buttons">
-                    <el-button 
-                        type="primary" 
-                        size="large" 
+                    <el-button
+                        type="primary"
+                        size="large"
                         :disabled="todayAttendance.clockInTime || loading"
                         @click="handleClockIn"
                         class="clock-btn"
@@ -24,15 +24,25 @@
                         上班打卡
                     </el-button>
 
-                    <el-button 
-                        type="success" 
-                        size="large" 
+                    <el-button
+                        type="success"
+                        size="large"
                         :disabled="!todayAttendance.clockInTime || todayAttendance.clockOutTime || loading"
                         @click="handleClockOut"
                         class="clock-btn"
                     >
                         <el-icon><Clock /></el-icon>
                         下班打卡
+                    </el-button>
+
+                    <el-button
+                        type="warning"
+                        size="large"
+                        @click="handleExportAttendance"
+                        class="clock-btn"
+                    >
+                        <el-icon><Download /></el-icon>
+                        导出报表
                     </el-button>
                 </div>
 
@@ -102,6 +112,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Clock, Download } from '@element-plus/icons-vue'
 import { getTodayAttendance, clockIn, clockOut, getAttendanceStats } from '@/api/attendance'
 
 const loading = ref(false)
@@ -175,6 +186,50 @@ const handleClockOut = async () => {
         ElMessage.error(error.message || '打卡失败')
     } finally {
         loading.value = false
+    }
+}
+
+// 导出考勤报表
+const handleExportAttendance = async () => {
+    try {
+        const { exportToExcel } = await import('@/utils/excel')
+
+        // 获取考勤统计数据
+        const now = new Date()
+        const startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+        const res = await getAttendanceStats({
+            startDate: formatDate(startDate),
+            endDate: formatDate(now)
+        })
+
+        // 构造导出数据
+        const exportData = [{
+            month: `${now.getFullYear()}年${now.getMonth() + 1}月`,
+            totalCount: stats.totalCount,
+            normalCount: stats.normalCount,
+            lateCount: stats.lateCount,
+            earlyLeaveCount: stats.earlyLeaveCount,
+            absentCount: stats.totalCount - stats.normalCount - stats.lateCount - stats.earlyLeaveCount,
+            normalRate: stats.totalCount > 0 ? ((stats.normalCount / stats.totalCount) * 100).toFixed(2) + '%' : '0%'
+        }]
+
+        // 字段映射配置
+        const fieldMapping = {
+            month: '月份',
+            totalCount: '总打卡次数',
+            normalCount: '正常打卡',
+            lateCount: '迟到次数',
+            earlyLeaveCount: '早退次数',
+            absentCount: '缺勤次数',
+            normalRate: '正常率'
+        }
+
+        // 导出Excel
+        const filename = exportToExcel(exportData, '考勤统计报表', { fieldMapping })
+        ElMessage.success(`导出成功: ${filename}`)
+    } catch (error) {
+        console.error('导出失败:', error)
+        ElMessage.error('导出失败: ' + error.message)
     }
 }
 

@@ -1,1 +1,0 @@
-import{j as e}from"./index-DVPGCXeP.js";function a(){return e({url:"/category/list",method:"get"})}function u(t){return e({url:"/category",method:"post",data:t})}function n(t,r){return e({url:`/category/${t}`,method:"put",data:r})}function g(t){return e({url:`/category/${t}`,method:"delete"})}export{u as a,g as d,a as g,n as u};

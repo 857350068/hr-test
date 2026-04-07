@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hr.datacenter.entity.SalaryAdjustment;
-import com.hr.datacenter.mapper.SalaryAdjustmentMapper;
+import com.hr.datacenter.mapper.mysql.SalaryAdjustmentMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 

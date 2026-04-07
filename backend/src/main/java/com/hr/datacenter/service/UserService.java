@@ -3,7 +3,7 @@ package com.hr.datacenter.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hr.datacenter.entity.User;
-import com.hr.datacenter.mapper.UserMapper;
+import com.hr.datacenter.mapper.mysql.UserMapper;
 import com.hr.datacenter.util.PasswordUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

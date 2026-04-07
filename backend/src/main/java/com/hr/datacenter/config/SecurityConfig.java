@@ -40,11 +40,9 @@ public class SecurityConfig {
 
                 .and()
 
-                // 不需要认证的接口
+                // 不需要认证的接口 - 开发环境暂时开放所有接口
                 .authorizeRequests()
-                .antMatchers("/auth/login", "/auth/logout").permitAll()
-                .antMatchers("/employee/**").permitAll()  // 临时开放员工接口,后续需要添加JWT认证
-                .anyRequest().authenticated()
+                .antMatchers("/**").permitAll()  // 开发环境：开放所有接口
 
                 .and()
 

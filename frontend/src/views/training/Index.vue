@@ -12,6 +12,10 @@
                             <el-icon><Plus /></el-icon>
                             新增课程
                         </el-button>
+                        <el-button type="success" @click="handleExportTraining">
+                            <el-icon><Download /></el-icon>
+                            导出记录
+                        </el-button>
                     </el-card>
 
                     <!-- 查询表单 -->
@@ -266,9 +270,9 @@
                 </el-form-item>
                 <el-form-item label="课程状态" prop="courseStatus">
                     <el-radio-group v-model="courseForm.courseStatus">
-                        <el-radio :label="0">未开始</el-radio>
-                        <el-radio :label="1">进行中</el-radio>
-                        <el-radio :label="2">已结束</el-radio>
+                        <el-radio :value="0">未开始</el-radio>
+                        <el-radio :value="1">进行中</el-radio>
+                        <el-radio :value="2">已结束</el-radio>
                     </el-radio-group>
                 </el-form-item>
             </el-form>
@@ -307,8 +311,8 @@
             <el-form :model="approveForm" label-width="100px">
                 <el-form-item label="审核结果">
                     <el-radio-group v-model="approveForm.approvalStatus">
-                        <el-radio :label="1">通过</el-radio>
-                        <el-radio :label="2">拒绝</el-radio>
+                        <el-radio :value="1">通过</el-radio>
+                        <el-radio :value="2">拒绝</el-radio>
                     </el-radio-group>
                 </el-form-item>
                 <el-form-item label="审核意见">
@@ -357,7 +361,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, DocumentChecked } from '@element-plus/icons-vue'
+import { Plus, DocumentChecked, Download } from '@element-plus/icons-vue'
 import { 
     getCourseList, 
     addCourse, 
@@ -553,6 +557,47 @@ const handleAddCourse = () => {
         courseStatus: 0
     })
     courseDialogVisible.value = true
+}
+
+// 导出培训记录
+const handleExportTraining = async () => {
+    try {
+        const { exportToExcel } = await import('@/utils/excel')
+
+        // 字段映射配置
+        const fieldMapping = {
+            courseName: '课程名称',
+            courseType: '课程类型',
+            courseDescription: '课程描述',
+            instructor: '讲师',
+            duration: '时长(小时)',
+            location: '培训地点',
+            startDate: '开始日期',
+            endDate: '结束日期',
+            capacity: '容量',
+            enrolled: '已报名',
+            courseStatus: '课程状态',
+            createTime: '创建时间'
+        }
+
+        // 数据转换
+        const exportData = tableData.value.map(row => ({
+            ...row,
+            courseType: row.courseType === 1 ? '新员工培训' : 
+                       row.courseType === 2 ? '技能培训' : 
+                       row.courseType === 3 ? '管理培训' : 
+                       row.courseType === 4 ? '安全培训' : '其他',
+            courseStatus: row.courseStatus === 0 ? '未开始' : 
+                         row.courseStatus === 1 ? '进行中' : '已结束'
+        }))
+
+        // 导出Excel
+        const filename = exportToExcel(exportData, '培训记录', { fieldMapping })
+        ElMessage.success(`导出成功: ${filename}`)
+    } catch (error) {
+        console.error('导出失败:', error)
+        ElMessage.error('导出失败: ' + error.message)
+    }
 }
 
 const handleEditCourse = (row) => {

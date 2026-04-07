@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hr.datacenter.entity.Employee;
-import com.hr.datacenter.mapper.EmployeeMapper;
+import com.hr.datacenter.mapper.mysql.EmployeeMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -69,5 +69,65 @@ public class EmployeeService extends ServiceImpl<EmployeeMapper, Employee> {
      */
     public long getTotalCount() {
         return this.count();
+    }
+
+    /**
+     * 批量导入员工
+     */
+    public com.hr.datacenter.controller.EmployeeController.BatchImportResult batchImport(java.util.List<Employee> employees) {
+        int successCount = 0;
+        int failCount = 0;
+        java.util.List<String> failReasons = new java.util.ArrayList<>();
+
+        for (int i = 0; i < employees.size(); i++) {
+            try {
+                Employee employee = employees.get(i);
+
+                // 数据校验
+                if (employee.getEmpNo() == null || employee.getEmpNo().isEmpty()) {
+                    failCount++;
+                    failReasons.add("第" + (i + 1) + "条: 员工编号不能为空");
+                    continue;
+                }
+
+                if (employee.getEmpName() == null || employee.getEmpName().isEmpty()) {
+                    failCount++;
+                    failReasons.add("第" + (i + 1) + "条: 员工姓名不能为空");
+                    continue;
+                }
+
+                // 检查员工编号是否已存在
+                LambdaQueryWrapper<Employee> wrapper = new LambdaQueryWrapper<>();
+                wrapper.eq(Employee::getEmpNo, employee.getEmpNo());
+                if (this.count(wrapper) > 0) {
+                    failCount++;
+                    failReasons.add("第" + (i + 1) + "条: 员工编号 " + employee.getEmpNo() + " 已存在");
+                    continue;
+                }
+
+                // 设置默认值
+                if (employee.getStatus() == null) {
+                    employee.setStatus(1); // 默认在职
+                }
+                if (employee.getGender() == null) {
+                    employee.setGender(1); // 默认男
+                }
+
+                // 保存员工
+                boolean success = this.save(employee);
+                if (success) {
+                    successCount++;
+                } else {
+                    failCount++;
+                    failReasons.add("第" + (i + 1) + "条: 保存失败");
+                }
+            } catch (Exception e) {
+                failCount++;
+                failReasons.add("第" + (i + 1) + "条: " + e.getMessage());
+                log.error("导入第" + (i + 1) + "条数据失败", e);
+            }
+        }
+
+        return new com.hr.datacenter.controller.EmployeeController.BatchImportResult(successCount, failCount, failReasons);
     }
 }

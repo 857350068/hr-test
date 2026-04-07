@@ -72,6 +72,7 @@ CREATE TABLE attendance (
     attendance_type TINYINT NOT NULL COMMENT '考勤类型(0-正常 1-迟到 2-早退 3-旷工 4-请假 5-加班)',
     attendance_status TINYINT NOT NULL COMMENT '考勤状态(0-未打卡 1-已打卡 2-请假 3-加班)',
     work_duration INT COMMENT '工作时长(分钟)',
+    remark VARCHAR(500) COMMENT '备注',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     deleted TINYINT NOT NULL DEFAULT 0 COMMENT '删除标记',
@@ -88,21 +89,24 @@ CREATE TABLE attendance (
 CREATE TABLE `leave` (
     leave_id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '请假ID',
     emp_id BIGINT NOT NULL COMMENT '员工ID',
-    leave_type TINYINT NOT NULL COMMENT '请假类型(0-事假 1-病假 2-年假 3-婚假 4-产假 5-丧假)',
+    leave_type TINYINT NOT NULL COMMENT '请假类型(0-事假 1-病假 2-年假 3-婚假 4-产假 5-丧假 6-其他)',
     start_time DATETIME NOT NULL COMMENT '请假开始时间',
     end_time DATETIME NOT NULL COMMENT '请假结束时间',
     leave_duration INT NOT NULL COMMENT '请假时长(小时)',
     reason TEXT NOT NULL COMMENT '请假原因',
     approver_id BIGINT NOT NULL COMMENT '审批人ID',
-    approval_status TINYINT NOT NULL DEFAULT 0 COMMENT '审批状态(0-待审批 1-已同意 2-已拒绝)',
+    approval_status TINYINT NOT NULL DEFAULT 0 COMMENT '审批状态(0-待审批 1-已同意 2-已拒绝 3-已撤回)',
     approval_comment TEXT COMMENT '审批意见',
+    approval_time DATETIME COMMENT '审批时间',
+    attachment VARCHAR(500) COMMENT '附件路径',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     deleted TINYINT NOT NULL DEFAULT 0 COMMENT '删除标记',
     INDEX idx_emp_id (emp_id),
     INDEX idx_approver_id (approver_id),
     INDEX idx_start_time (start_time),
-    INDEX idx_approval_status (approval_status)
+    INDEX idx_approval_status (approval_status),
+    INDEX idx_approval_time (approval_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='请假记录表';
 
 -- =====================================================
@@ -133,20 +137,26 @@ CREATE TABLE performance_evaluation (
     evaluation_id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '评估ID',
     emp_id BIGINT NOT NULL COMMENT '员工ID',
     year INT NOT NULL COMMENT '评估年度',
-    period_type TINYINT NOT NULL COMMENT '评估周期',
+    period_type TINYINT NOT NULL COMMENT '评估周期(1-年度 2-季度 3-月度)',
+    quarter INT COMMENT '季度(季度评估时使用)',
+    month INT COMMENT '月份(月度评估时使用)',
     self_score DECIMAL(5,2) NOT NULL COMMENT '自评分',
     self_comment TEXT COMMENT '自评说明',
     supervisor_score DECIMAL(5,2) COMMENT '上级评分',
     supervisor_comment TEXT COMMENT '上级评价意见',
     final_score DECIMAL(5,2) COMMENT '综合评分',
     performance_level CHAR(1) COMMENT '绩效等级(S/A/B/C/D)',
-    interview_record TEXT COMMENT '面谈记录',
     improvement_plan TEXT COMMENT '改进建议',
+    interview_record TEXT COMMENT '面谈记录',
+    interview_date DATETIME COMMENT '面谈时间',
+    evaluation_status TINYINT NOT NULL DEFAULT 0 COMMENT '评估状态(0-未评估 1-已自评 2-已评价 3-已完成)',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     deleted TINYINT NOT NULL DEFAULT 0 COMMENT '删除标记',
     INDEX idx_emp_year_period (emp_id, year, period_type),
-    INDEX idx_performance_level (performance_level)
+    INDEX idx_performance_level (performance_level),
+    INDEX idx_evaluation_status (evaluation_status),
+    INDEX idx_interview_date (interview_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='绩效评估表';
 
 -- =====================================================
@@ -164,15 +174,17 @@ CREATE TABLE salary_payment (
     transport_allowance DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT '交通补贴',
     communication_allowance DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT '通讯补贴',
     meal_allowance DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT '餐补',
+    other_allowance DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT '其他补贴',
     overtime_pay DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT '加班费',
+    total_gross_salary DECIMAL(10,2) NOT NULL COMMENT '应发工资总额',
     social_insurance DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT '社保个人部分',
     housing_fund DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT '公积金个人部分',
     income_tax DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT '个人所得税',
     other_deduction DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT '其他扣款',
-    total_gross_salary DECIMAL(10,2) NOT NULL COMMENT '应发工资总额',
     total_net_salary DECIMAL(10,2) NOT NULL COMMENT '实发工资总额',
     payment_status TINYINT NOT NULL DEFAULT 0 COMMENT '发放状态(0-未发放 1-已发放)',
-    payment_date DATE COMMENT '发放日期',
+    payment_date DATETIME COMMENT '发放时间',
+    remark VARCHAR(500) COMMENT '备注',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     deleted TINYINT NOT NULL DEFAULT 0 COMMENT '删除标记',
@@ -192,16 +204,21 @@ CREATE TABLE salary_adjustment (
     before_salary DECIMAL(10,2) NOT NULL COMMENT '调整前工资',
     after_salary DECIMAL(10,2) NOT NULL COMMENT '调整后工资',
     adjustment_rate DECIMAL(5,2) COMMENT '调整幅度(%)',
-    effective_date DATE NOT NULL COMMENT '生效日期',
+    effective_date DATETIME NOT NULL COMMENT '生效日期',
     reason TEXT COMMENT '调整原因',
     approver_id BIGINT NOT NULL COMMENT '审批人ID',
     approval_status TINYINT NOT NULL DEFAULT 0 COMMENT '审批状态(0-待审批 1-已同意 2-已拒绝)',
+    approval_comment TEXT COMMENT '审批意见',
+    approval_date DATETIME COMMENT '审批时间',
+    creator_id BIGINT COMMENT '创建人ID',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     deleted TINYINT NOT NULL DEFAULT 0 COMMENT '删除标记',
     INDEX idx_emp_id (emp_id),
     INDEX idx_effective_date (effective_date),
-    INDEX idx_adjustment_type (adjustment_type)
+    INDEX idx_adjustment_type (adjustment_type),
+    INDEX idx_approval_date (approval_date),
+    INDEX idx_creator_id (creator_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='薪资调整表';
 
 -- =====================================================
@@ -211,16 +228,16 @@ CREATE TABLE salary_adjustment (
 CREATE TABLE training_course (
     course_id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '课程ID',
     course_name VARCHAR(100) NOT NULL COMMENT '课程名称',
-    course_type TINYINT NOT NULL COMMENT '课程类型(1-新员工 2-技能 3-管理 4-安全)',
+    course_type TINYINT NOT NULL COMMENT '课程类型(1-新员工培训 2-技能培训 3-管理培训 4-安全培训 5-其他)',
+    course_description VARCHAR(500) COMMENT '课程描述',
     instructor VARCHAR(50) NOT NULL COMMENT '培训讲师',
     duration INT NOT NULL COMMENT '培训时长(小时)',
     location VARCHAR(100) NOT NULL COMMENT '培训地点',
-    start_date DATE NOT NULL COMMENT '开始日期',
-    end_date DATE NOT NULL COMMENT '结束日期',
+    start_date DATETIME NOT NULL COMMENT '培训开始时间',
+    end_date DATETIME NOT NULL COMMENT '培训结束时间',
     capacity INT NOT NULL COMMENT '培训名额',
     enrolled_count INT NOT NULL DEFAULT 0 COMMENT '已报名人数',
     course_status TINYINT NOT NULL DEFAULT 0 COMMENT '课程状态(0-未开始 1-进行中 2-已结束)',
-    description TEXT COMMENT '课程描述',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     deleted TINYINT NOT NULL DEFAULT 0 COMMENT '删除标记',
@@ -239,7 +256,8 @@ CREATE TABLE training_enrollment (
     emp_id BIGINT NOT NULL COMMENT '员工ID',
     enrollment_time DATETIME NOT NULL COMMENT '报名时间',
     approval_status TINYINT NOT NULL DEFAULT 0 COMMENT '审核状态(0-待审核 1-已通过 2-已拒绝)',
-    attendance_status TINYINT NOT NULL DEFAULT 0 COMMENT '出勤状态(0-未出勤 1-已出勤)',
+    approver_id BIGINT COMMENT '审核人ID',
+    attendance_status TINYINT NOT NULL DEFAULT 0 COMMENT '出勤状态(0-未出勤 1-已出勤 2-请假)',
     score INT COMMENT '培训成绩',
     feedback TEXT COMMENT '培训反馈',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -248,7 +266,8 @@ CREATE TABLE training_enrollment (
     UNIQUE KEY uk_course_emp (course_id, emp_id),
     INDEX idx_course_id (course_id),
     INDEX idx_emp_id (emp_id),
-    INDEX idx_approval_status (approval_status)
+    INDEX idx_approval_status (approval_status),
+    INDEX idx_approver_id (approver_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='培训报名表';
 
 -- =====================================================

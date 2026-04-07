@@ -16,6 +16,10 @@
                             <el-icon><Check /></el-icon>
                             批量完成
                         </el-button>
+                        <el-button type="success" @click="handleExportPerformance">
+                            <el-icon><Download /></el-icon>
+                            导出报告
+                        </el-button>
                     </el-card>
 
                     <!-- 查询表单 -->
@@ -278,9 +282,9 @@
                 </el-form-item>
                 <el-form-item label="目标状态" prop="goalStatus">
                     <el-radio-group v-model="goalForm.goalStatus">
-                        <el-radio :label="0">草稿</el-radio>
-                        <el-radio :label="1">进行中</el-radio>
-                        <el-radio :label="2">已完成</el-radio>
+                        <el-radio :value="0">草稿</el-radio>
+                        <el-radio :value="1">进行中</el-radio>
+                        <el-radio :value="2">已完成</el-radio>
                     </el-radio-group>
                 </el-form-item>
             </el-form>
@@ -482,7 +486,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Check, Edit, DocumentChecked, ChatLineSquare } from '@element-plus/icons-vue'
+import { Plus, Check, Edit, DocumentChecked, ChatLineSquare, Download } from '@element-plus/icons-vue'
 import { 
     getGoalList, 
     addGoal, 
@@ -801,6 +805,46 @@ const handleBatchComplete = () => {
             ElMessage.error('操作失败')
         }
     }).catch(() => {})
+}
+
+// 导出绩效报告
+const handleExportPerformance = async () => {
+    try {
+        const { exportToExcel } = await import('@/utils/excel')
+
+        // 字段映射配置
+        const fieldMapping = {
+            empId: '员工ID',
+            year: '评估年度',
+            periodType: '评估周期',
+            goalName: '目标名称',
+            goalWeight: '目标权重',
+            targetValue: '目标值',
+            actualValue: '实际值',
+            completionRate: '完成率',
+            selfScore: '自评得分',
+            managerScore: '上级评分',
+            finalScore: '最终得分',
+            goalStatus: '目标状态',
+            createTime: '创建时间'
+        }
+
+        // 数据转换
+        const exportData = goalTableData.value.map(row => ({
+            ...row,
+            periodType: row.periodType === 1 ? '年度' : row.periodType === 2 ? '季度' : '月度',
+            goalWeight: row.goalWeight ? `${row.goalWeight}%` : '0%',
+            completionRate: row.completionRate ? `${row.completionRate.toFixed(2)}%` : '0%',
+            goalStatus: row.goalStatus === 1 ? '进行中' : row.goalStatus === 2 ? '已完成' : '未开始'
+        }))
+
+        // 导出Excel
+        const filename = exportToExcel(exportData, '绩效评估报告', { fieldMapping })
+        ElMessage.success(`导出成功: ${filename}`)
+    } catch (error) {
+        console.error('导出失败:', error)
+        ElMessage.error('导出失败: ' + error.message)
+    }
 }
 
 const handleGoalDialogClose = () => {

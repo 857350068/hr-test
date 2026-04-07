@@ -67,14 +67,14 @@ BEGIN
             -- 插入薪资记录
             INSERT INTO salary_payment (
                 emp_id, year, month, basic_salary, performance_salary,
-                position_allowance, transport_allowance, communication_allowance, meal_allowance,
-                social_insurance, housing_fund, income_tax,
-                total_gross_salary, total_net_salary, payment_status, payment_date
+                position_allowance, transport_allowance, communication_allowance, meal_allowance, other_allowance,
+                overtime_pay, total_gross_salary, social_insurance, housing_fund, income_tax, other_deduction,
+                total_net_salary, payment_status, payment_date, remark
             ) VALUES (
                 v_emp_id, v_year, v_month, v_base_salary, v_perf_salary,
-                500, 300, 200, 100,
-                v_social, v_fund, v_tax,
-                v_gross, v_net, 1, DATE(CONCAT(v_year, '-', v_month, '-15'))
+                500, 300, 200, 100, 0,
+                100, v_gross, v_social, v_fund, v_tax, 0,
+                v_net, 1, DATE_FORMAT(CONCAT(v_year, '-', v_month, '-15 10:00:00'), '%Y-%m-%d %H:%i:%s'), '月度薪资发放'
             );
 
             SET v_counter = v_counter + 1;

@@ -4,7 +4,8 @@ import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -43,7 +44,7 @@ public class Employee implements Serializable {
     /**
      * 出生日期
      */
-    private LocalDateTime birthDate;
+    private LocalDate birthDate;
 
     /**
      * 身份证号
@@ -73,17 +74,17 @@ public class Employee implements Serializable {
     /**
      * 薪资
      */
-    private Double salary;
+    private BigDecimal salary;
 
     /**
      * 入职日期
      */
-    private LocalDateTime hireDate;
+    private LocalDate hireDate;
 
     /**
      * 离职日期
      */
-    private LocalDateTime resignDate;
+    private LocalDate resignDate;
 
     /**
      * 员工状态(0-离职 1-在职 2-试用)
@@ -146,11 +147,11 @@ public class Employee implements Serializable {
         this.gender = gender;
     }
 
-    public LocalDateTime getBirthDate() {
+    public LocalDate getBirthDate() {
         return birthDate;
     }
 
-    public void setBirthDate(LocalDateTime birthDate) {
+    public void setBirthDate(LocalDate birthDate) {
         this.birthDate = birthDate;
     }
 
@@ -194,27 +195,27 @@ public class Employee implements Serializable {
         this.position = position;
     }
 
-    public Double getSalary() {
+    public BigDecimal getSalary() {
         return salary;
     }
 
-    public void setSalary(Double salary) {
+    public void setSalary(BigDecimal salary) {
         this.salary = salary;
     }
 
-    public LocalDateTime getHireDate() {
+    public LocalDate getHireDate() {
         return hireDate;
     }
 
-    public void setHireDate(LocalDateTime hireDate) {
+    public void setHireDate(LocalDate hireDate) {
         this.hireDate = hireDate;
     }
 
-    public LocalDateTime getResignDate() {
+    public LocalDate getResignDate() {
         return resignDate;
     }
 
-    public void setResignDate(LocalDateTime resignDate) {
+    public void setResignDate(LocalDate resignDate) {
         this.resignDate = resignDate;
     }
 

@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hr.datacenter.entity.SalaryPayment;
-import com.hr.datacenter.mapper.SalaryPaymentMapper;
+import com.hr.datacenter.mapper.mysql.SalaryPaymentMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -67,9 +67,6 @@ public class SalaryPaymentService extends ServiceImpl<SalaryPaymentMapper, Salar
         if (payment.getMealAllowance() != null) {
             totalGross = totalGross.add(payment.getMealAllowance());
         }
-        if (payment.getOtherAllowance() != null) {
-            totalGross = totalGross.add(payment.getOtherAllowance());
-        }
         if (payment.getOvertimePay() != null) {
             totalGross = totalGross.add(payment.getOvertimePay());
         }
@@ -77,11 +74,11 @@ public class SalaryPaymentService extends ServiceImpl<SalaryPaymentMapper, Salar
 
         // 计算实发工资总额
         BigDecimal totalNet = totalGross;
-        if (payment.getSocialInsurancePersonal() != null) {
-            totalNet = totalNet.subtract(payment.getSocialInsurancePersonal());
+        if (payment.getSocialInsurance() != null) {
+            totalNet = totalNet.subtract(payment.getSocialInsurance());
         }
-        if (payment.getHousingFundPersonal() != null) {
-            totalNet = totalNet.subtract(payment.getHousingFundPersonal());
+        if (payment.getHousingFund() != null) {
+            totalNet = totalNet.subtract(payment.getHousingFund());
         }
         if (payment.getIncomeTax() != null) {
             totalNet = totalNet.subtract(payment.getIncomeTax());

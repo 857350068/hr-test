@@ -21,6 +21,10 @@
                 <el-icon><Plus /></el-icon>
                 新增员工
             </el-button>
+            <el-button type="success" @click="handleImport">
+                <el-icon><Upload /></el-icon>
+                批量导入
+            </el-button>
             <el-button type="success" @click="handleExport">
                 <el-icon><Download /></el-icon>
                 导出Excel
@@ -93,8 +97,8 @@
                 </el-form-item>
                 <el-form-item label="性别" prop="gender">
                     <el-radio-group v-model="formData.gender">
-                        <el-radio :label="1">男</el-radio>
-                        <el-radio :label="0">女</el-radio>
+                        <el-radio :value="1">男</el-radio>
+                        <el-radio :value="0">女</el-radio>
                     </el-radio-group>
                 </el-form-item>
                 <el-form-item label="出生日期" prop="birthDate">
@@ -149,12 +153,106 @@
                 <el-button type="primary" @click="handleSubmit">确定</el-button>
             </template>
         </el-dialog>
+
+        <!-- 批量导入对话框 -->
+        <el-dialog
+            v-model="importDialogVisible"
+            title="批量导入员工信息"
+            width="700px"
+        >
+            <el-steps :active="importStep" finish-status="success" simple style="margin-bottom: 20px">
+                <el-step title="下载模板" />
+                <el-step title="上传文件" />
+                <el-step title="数据预览" />
+                <el-step title="导入结果" />
+            </el-steps>
+
+            <!-- 步骤1: 下载模板 -->
+            <div v-if="importStep === 0" style="text-align: center; padding: 40px 0">
+                <el-button type="primary" size="large" @click="handleDownloadTemplate">
+                    <el-icon><Download /></el-icon>
+                    下载导入模板
+                </el-button>
+                <p style="margin-top: 20px; color: #999">请先下载模板，按模板格式填写员工信息</p>
+            </div>
+
+            <!-- 步骤2: 上传文件 -->
+            <div v-if="importStep === 1">
+                <el-upload
+                    ref="uploadRef"
+                    :auto-upload="false"
+                    :limit="1"
+                    :on-change="handleFileChange"
+                    :before-upload="beforeFileUpload"
+                    accept=".xlsx,.xls"
+                    drag
+                >
+                    <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+                    <div class="el-upload__text">
+                        将文件拖到此处，或<em>点击上传</em>
+                    </div>
+                    <template #tip>
+                        <div class="el-upload__tip">
+                            只能上传 xlsx/xls 文件，且文件大小不超过 10MB
+                        </div>
+                    </template>
+                </el-upload>
+            </div>
+
+            <!-- 步骤3: 数据预览 -->
+            <div v-if="importStep === 2">
+                <div v-if="importErrors.length > 0" style="margin-bottom: 20px">
+                    <el-alert
+                        title="数据校验发现错误"
+                        type="error"
+                        :closable="false"
+                    >
+                        <div v-for="(error, index) in importErrors.slice(0, 10)" :key="index">
+                            {{ error.message }}
+                        </div>
+                        <div v-if="importErrors.length > 10">
+                            还有 {{ importErrors.length - 10 }} 条错误...
+                        </div>
+                    </el-alert>
+                </div>
+                <el-table :data="importPreviewData" border max-height="400">
+                    <el-table-column type="index" label="行号" width="60" />
+                    <el-table-column prop="empNo" label="员工编号" width="120" />
+                    <el-table-column prop="empName" label="员工姓名" width="120" />
+                    <el-table-column prop="gender" label="性别" width="80" />
+                    <el-table-column prop="department" label="部门" width="120" />
+                    <el-table-column prop="position" label="职位" width="120" />
+                    <el-table-column prop="phone" label="联系电话" width="130" />
+                </el-table>
+            </div>
+
+            <!-- 步骤4: 导入结果 -->
+            <div v-if="importStep === 3" style="text-align: center; padding: 40px 0">
+                <el-result
+                    :icon="importResult.success ? 'success' : 'warning'"
+                    :title="importResult.title"
+                    :sub-title="importResult.message"
+                >
+                    <template #extra>
+                        <el-button type="primary" @click="closeImportDialog">完成</el-button>
+                    </template>
+                </el-result>
+            </div>
+
+            <template #footer>
+                <el-button @click="closeImportDialog">取消</el-button>
+                <el-button v-if="importStep > 0 && importStep < 3" @click="importStep--">上一步</el-button>
+                <el-button v-if="importStep === 1" type="primary" @click="handleParseFile" :disabled="!importFile">解析文件</el-button>
+                <el-button v-if="importStep === 2" type="primary" @click="handleConfirmImport" :disabled="importErrors.length > 0">确认导入</el-button>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Download, UploadFilled } from '@element-plus/icons-vue'
 import { getEmployeeList, addEmployee, updateEmployee, deleteEmployee } from '@/api/employee'
 
 const loading = ref(false)
@@ -273,7 +371,26 @@ const handleEdit = (row) => {
 
 // 查看员工
 const handleView = (row) => {
-    ElMessage.info('查看功能开发中')
+    ElMessageBox.alert(`
+        <div style="line-height: 2;">
+            <p><strong>员工编号：</strong>${row.empNo}</p>
+            <p><strong>员工姓名：</strong>${row.empName}</p>
+            <p><strong>性别：</strong>${row.gender === 1 ? '男' : '女'}</p>
+            <p><strong>出生日期：</strong>${row.birthDate || '未填写'}</p>
+            <p><strong>身份证号：</strong>${row.idCard || '未填写'}</p>
+            <p><strong>联系电话：</strong>${row.phone || '未填写'}</p>
+            <p><strong>邮箱：</strong>${row.email || '未填写'}</p>
+            <p><strong>部门：</strong>${row.department || '未填写'}</p>
+            <p><strong>职位：</strong>${row.position || '未填写'}</p>
+            <p><strong>薪资：</strong>¥${row.salary ? row.salary.toLocaleString() : '0'}</p>
+            <p><strong>入职日期：</strong>${row.hireDate || '未填写'}</p>
+            <p><strong>状态：</strong>${row.status === 1 ? '在职' : row.status === 2 ? '试用' : '离职'}</p>
+            <p><strong>学历：</strong>${row.education || '未填写'}</p>
+        </div>
+    `, '员工详情', {
+        dangerouslyUseHTMLString: true,
+        confirmButtonText: '关闭'
+    })
 }
 
 // 删除员工
@@ -297,8 +414,235 @@ const handleDelete = (row) => {
 }
 
 // 导出Excel
-const handleExport = () => {
-    ElMessage.info('导出功能开发中')
+const handleExport = async () => {
+    try {
+        const { exportToExcel } = await import('@/utils/excel')
+
+        // 字段映射配置
+        const fieldMapping = {
+            empNo: '员工编号',
+            empName: '员工姓名',
+            gender: '性别',
+            department: '部门',
+            position: '职位',
+            phone: '联系电话',
+            email: '邮箱',
+            salary: '薪资',
+            status: '状态',
+            hireDate: '入职日期',
+            education: '学历'
+        }
+
+        // 数据转换
+        const exportData = tableData.value.map(row => ({
+            ...row,
+            gender: row.gender === 1 ? '男' : '女',
+            status: row.status === 1 ? '在职' : row.status === 2 ? '试用' : '离职',
+            salary: row.salary ? `¥${row.salary.toLocaleString()}` : '¥0'
+        }))
+
+        // 导出Excel
+        const filename = exportToExcel(exportData, '员工列表', { fieldMapping })
+        ElMessage.success(`导出成功: ${filename}`)
+    } catch (error) {
+        console.error('导出失败:', error)
+        ElMessage.error('导出失败: ' + error.message)
+    }
+}
+
+// ==================== 批量导入功能 ====================
+const importDialogVisible = ref(false)
+const importStep = ref(0)
+const importFile = ref(null)
+const importPreviewData = ref([])
+const importErrors = ref([])
+const importResult = ref({
+    success: false,
+    title: '',
+    message: ''
+})
+const uploadRef = ref(null)
+
+// 打开导入对话框
+const handleImport = () => {
+    importStep.value = 0
+    importFile.value = null
+    importPreviewData.value = []
+    importErrors.value = []
+    importDialogVisible.value = true
+}
+
+// 关闭导入对话框
+const closeImportDialog = () => {
+    importDialogVisible.value = false
+    importStep.value = 0
+    importFile.value = null
+    importPreviewData.value = []
+    importErrors.value = []
+}
+
+// 下载模板
+const handleDownloadTemplate = async () => {
+    try {
+        const { generateTemplate } = await import('@/utils/excel')
+
+        const fields = [
+            { name: 'empNo', label: '员工编号', example: 'EMP001' },
+            { name: 'empName', label: '员工姓名', example: '张三' },
+            { name: 'gender', label: '性别', example: '男' },
+            { name: 'birthDate', label: '出生日期', example: '1990-01-01' },
+            { name: 'idCard', label: '身份证号', example: '110101199001011234' },
+            { name: 'phone', label: '联系电话', example: '13800138000' },
+            { name: 'email', label: '邮箱', example: 'zhangsan@example.com' },
+            { name: 'department', label: '部门', example: '技术部' },
+            { name: 'position', label: '职位', example: '软件工程师' },
+            { name: 'salary', label: '薪资', example: '10000' },
+            { name: 'hireDate', label: '入职日期', example: '2024-01-01' },
+            { name: 'status', label: '状态', example: '在职' },
+            { name: 'education', label: '学历', example: '本科' }
+        ]
+
+        generateTemplate(fields, '员工信息导入模板')
+        ElMessage.success('模板下载成功')
+
+        // 自动进入下一步
+        importStep.value = 1
+    } catch (error) {
+        console.error('模板下载失败:', error)
+        ElMessage.error('模板下载失败: ' + error.message)
+    }
+}
+
+// 文件选择变化
+const handleFileChange = (file) => {
+    importFile.value = file.raw
+}
+
+// 文件上传前校验
+const beforeFileUpload = (file) => {
+    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls')
+    const isLt10M = file.size / 1024 / 1024 < 10
+
+    if (!isExcel) {
+        ElMessage.error('只能上传 xlsx/xls 文件!')
+        return false
+    }
+    if (!isLt10M) {
+        ElMessage.error('文件大小不能超过 10MB!')
+        return false
+    }
+    return true
+}
+
+// 解析文件
+const handleParseFile = async () => {
+    if (!importFile.value) {
+        ElMessage.warning('请先选择文件')
+        return
+    }
+
+    try {
+        const { parseExcel, validateData } = await import('@/utils/excel-import')
+
+        // 字段映射（中文表头 -> 英文字段名）
+        const fieldMapping = {
+            '员工编号': 'empNo',
+            '员工姓名': 'empName',
+            '性别': 'gender',
+            '出生日期': 'birthDate',
+            '身份证号': 'idCard',
+            '联系电话': 'phone',
+            '邮箱': 'email',
+            '部门': 'department',
+            '职位': 'position',
+            '薪资': 'salary',
+            '入职日期': 'hireDate',
+            '状态': 'status',
+            '学历': 'education'
+        }
+
+        // 解析Excel
+        const data = await parseExcel(importFile.value, { fieldMapping })
+
+        // 数据转换
+        const processedData = data.map(item => ({
+            ...item,
+            gender: item.gender === '男' ? 1 : 0,
+            status: item.status === '在职' ? 1 : item.status === '试用' ? 2 : 0,
+            salary: Number(item.salary) || 0
+        }))
+
+        // 数据校验
+        const rules = {
+            empNo: { required: true, message: '员工编号不能为空' },
+            empName: { required: true, message: '员工姓名不能为空' },
+            phone: { required: true, type: 'phone', message: '联系电话格式不正确' },
+            email: { required: true, type: 'email', message: '邮箱格式不正确' },
+            department: { required: true, message: '部门不能为空' },
+            position: { required: true, message: '职位不能为空' }
+        }
+
+        const validation = validateData(processedData, rules)
+
+        importPreviewData.value = processedData
+        importErrors.value = validation.errors
+
+        if (validation.valid) {
+            ElMessage.success(`文件解析成功，共 ${processedData.length} 条数据`)
+        } else {
+            ElMessage.warning(`文件解析完成，发现 ${validation.errors.length} 个错误`)
+        }
+
+        // 进入预览步骤
+        importStep.value = 2
+    } catch (error) {
+        console.error('文件解析失败:', error)
+        ElMessage.error('文件解析失败: ' + error.message)
+    }
+}
+
+// 确认导入
+const handleConfirmImport = async () => {
+    try {
+        // 调用批量导入API
+        const response = await fetch('/api/employee/batch-import', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + localStorage.getItem('token')
+            },
+            body: JSON.stringify(importPreviewData.value)
+        })
+
+        const result = await response.json()
+
+        if (result.code === 200) {
+            importResult.value = {
+                success: true,
+                title: '导入成功',
+                message: `成功导入 ${result.data.successCount} 条数据，失败 ${result.data.failCount} 条`
+            }
+            ElMessage.success('导入成功')
+            fetchEmployeeList() // 刷新列表
+        } else {
+            importResult.value = {
+                success: false,
+                title: '导入失败',
+                message: result.message || '导入过程中发生错误'
+            }
+        }
+
+        // 进入结果步骤
+        importStep.value = 3
+    } catch (error) {
+        console.error('导入失败:', error)
+        importResult.value = {
+            success: false,
+            title: '导入失败',
+            message: error.message
+        }
+        importStep.value = 3
+    }
 }
 
 // 重置表单

@@ -86,14 +86,14 @@ public class SalaryPayment implements Serializable {
     private BigDecimal totalGrossSalary;
 
     /**
-     * 社保个人部分
+     * 社保
      */
-    private BigDecimal socialInsurancePersonal;
+    private BigDecimal socialInsurance;
 
     /**
-     * 公积金个人部分
+     * 公积金
      */
-    private BigDecimal housingFundPersonal;
+    private BigDecimal housingFund;
 
     /**
      * 个人所得税
@@ -224,14 +224,6 @@ public class SalaryPayment implements Serializable {
         this.mealAllowance = mealAllowance;
     }
 
-    public BigDecimal getOtherAllowance() {
-        return otherAllowance;
-    }
-
-    public void setOtherAllowance(BigDecimal otherAllowance) {
-        this.otherAllowance = otherAllowance;
-    }
-
     public BigDecimal getOvertimePay() {
         return overtimePay;
     }
@@ -249,19 +241,19 @@ public class SalaryPayment implements Serializable {
     }
 
     public BigDecimal getSocialInsurancePersonal() {
-        return socialInsurancePersonal;
+        return socialInsurance;
     }
 
-    public void setSocialInsurancePersonal(BigDecimal socialInsurancePersonal) {
-        this.socialInsurancePersonal = socialInsurancePersonal;
+    public void setSocialInsurancePersonal(BigDecimal socialInsurance) {
+        this.socialInsurance = socialInsurance;
     }
 
     public BigDecimal getHousingFundPersonal() {
-        return housingFundPersonal;
+        return housingFund;
     }
 
-    public void setHousingFundPersonal(BigDecimal housingFundPersonal) {
-        this.housingFundPersonal = housingFundPersonal;
+    public void setHousingFundPersonal(BigDecimal housingFund) {
+        this.housingFund = housingFund;
     }
 
     public BigDecimal getIncomeTax() {

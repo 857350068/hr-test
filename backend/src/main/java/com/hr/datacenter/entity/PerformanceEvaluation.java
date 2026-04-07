@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -52,7 +53,7 @@ public class PerformanceEvaluation implements Serializable {
     /**
      * 自评分
      */
-    private Double selfScore;
+    private BigDecimal selfScore;
 
     /**
      * 自评说明
@@ -62,7 +63,7 @@ public class PerformanceEvaluation implements Serializable {
     /**
      * 上级评分
      */
-    private Double supervisorScore;
+    private BigDecimal supervisorScore;
 
     /**
      * 上级评价意见
@@ -72,7 +73,7 @@ public class PerformanceEvaluation implements Serializable {
     /**
      * 综合评分
      */
-    private Double finalScore;
+    private BigDecimal finalScore;
 
     /**
      * 绩效等级(S-优秀 A-良好 B-合格 C-需改进 D-不合格)
@@ -166,11 +167,11 @@ public class PerformanceEvaluation implements Serializable {
         this.month = month;
     }
 
-    public Double getSelfScore() {
+    public BigDecimal getSelfScore() {
         return selfScore;
     }
 
-    public void setSelfScore(Double selfScore) {
+    public void setSelfScore(BigDecimal selfScore) {
         this.selfScore = selfScore;
     }
 
@@ -182,11 +183,11 @@ public class PerformanceEvaluation implements Serializable {
         this.selfComment = selfComment;
     }
 
-    public Double getSupervisorScore() {
+    public BigDecimal getSupervisorScore() {
         return supervisorScore;
     }
 
-    public void setSupervisorScore(Double supervisorScore) {
+    public void setSupervisorScore(BigDecimal supervisorScore) {
         this.supervisorScore = supervisorScore;
     }
 
@@ -198,11 +199,11 @@ public class PerformanceEvaluation implements Serializable {
         this.supervisorComment = supervisorComment;
     }
 
-    public Double getFinalScore() {
+    public BigDecimal getFinalScore() {
         return finalScore;
     }
 
-    public void setFinalScore(Double finalScore) {
+    public void setFinalScore(BigDecimal finalScore) {
         this.finalScore = finalScore;
     }
 

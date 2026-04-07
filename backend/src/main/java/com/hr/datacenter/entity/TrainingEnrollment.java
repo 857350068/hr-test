@@ -50,16 +50,6 @@ public class TrainingEnrollment implements Serializable {
     private Long approverId;
 
     /**
-     * 审核意见
-     */
-    private String approvalComment;
-
-    /**
-     * 审核时间
-     */
-    private LocalDateTime approvalDate;
-
-    /**
      * 出勤状态(0-未出勤 1-已出勤 2-请假)
      */
     private Integer attendanceStatus;
@@ -131,30 +121,6 @@ public class TrainingEnrollment implements Serializable {
 
     public void setApprovalStatus(Integer approvalStatus) {
         this.approvalStatus = approvalStatus;
-    }
-
-    public Long getApproverId() {
-        return approverId;
-    }
-
-    public void setApproverId(Long approverId) {
-        this.approverId = approverId;
-    }
-
-    public String getApprovalComment() {
-        return approvalComment;
-    }
-
-    public void setApprovalComment(String approvalComment) {
-        this.approvalComment = approvalComment;
-    }
-
-    public LocalDateTime getApprovalDate() {
-        return approvalDate;
-    }
-
-    public void setApprovalDate(LocalDateTime approvalDate) {
-        this.approvalDate = approvalDate;
     }
 
     public Integer getAttendanceStatus() {

@@ -163,8 +163,8 @@
             <el-form :model="approveForm" label-width="100px">
                 <el-form-item label="审批结果">
                     <el-radio-group v-model="approveForm.status">
-                        <el-radio :label="1">同意</el-radio>
-                        <el-radio :label="2">拒绝</el-radio>
+                        <el-radio :value="1">同意</el-radio>
+                        <el-radio :value="2">拒绝</el-radio>
                     </el-radio-group>
                 </el-form-item>
                 <el-form-item label="审批意见">

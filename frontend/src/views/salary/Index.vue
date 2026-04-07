@@ -16,6 +16,10 @@
                             <el-icon><Check /></el-icon>
                             批量发放
                         </el-button>
+                        <el-button type="success" @click="handleExportSalary">
+                            <el-icon><Download /></el-icon>
+                            批量导出
+                        </el-button>
                     </el-card>
 
                     <!-- 查询表单 -->
@@ -386,8 +390,8 @@
             <el-form :model="approveForm" label-width="100px">
                 <el-form-item label="审批结果">
                     <el-radio-group v-model="approveForm.approvalStatus">
-                        <el-radio :label="1">同意</el-radio>
-                        <el-radio :label="2">拒绝</el-radio>
+                        <el-radio :value="1">同意</el-radio>
+                        <el-radio :value="2">拒绝</el-radio>
                     </el-radio-group>
                 </el-form-item>
                 <el-form-item label="审批意见">
@@ -452,7 +456,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Check, DocumentChecked } from '@element-plus/icons-vue'
+import { Plus, Check, DocumentChecked, Download } from '@element-plus/icons-vue'
 import { 
     getPaymentList, 
     addPayment, 
@@ -725,6 +729,55 @@ const handleBatchRelease = () => {
             ElMessage.error('批量发放失败')
         }
     }).catch(() => {})
+}
+
+// 批量导出薪资单
+const handleExportSalary = async () => {
+    try {
+        const { exportToExcel } = await import('@/utils/excel')
+
+        // 字段映射配置
+        const fieldMapping = {
+            empId: '员工ID',
+            year: '年度',
+            month: '月份',
+            basicSalary: '基本工资',
+            performanceSalary: '绩效工资',
+            bonus: '奖金',
+            allowance: '补贴',
+            totalGrossSalary: '应发工资',
+            socialInsurancePersonal: '社保个人',
+            housingFundPersonal: '公积金个人',
+            incomeTax: '个人所得税',
+            otherDeduction: '其他扣款',
+            totalNetSalary: '实发工资',
+            paymentStatus: '发放状态',
+            paymentDate: '发放时间'
+        }
+
+        // 数据转换
+        const exportData = tableData.value.map(row => ({
+            ...row,
+            basicSalary: row.basicSalary ? `¥${row.basicSalary.toFixed(2)}` : '¥0.00',
+            performanceSalary: row.performanceSalary ? `¥${row.performanceSalary.toFixed(2)}` : '¥0.00',
+            bonus: row.bonus ? `¥${row.bonus.toFixed(2)}` : '¥0.00',
+            allowance: row.allowance ? `¥${row.allowance.toFixed(2)}` : '¥0.00',
+            totalGrossSalary: row.totalGrossSalary ? `¥${row.totalGrossSalary.toFixed(2)}` : '¥0.00',
+            socialInsurancePersonal: row.socialInsurancePersonal ? `¥${row.socialInsurancePersonal.toFixed(2)}` : '¥0.00',
+            housingFundPersonal: row.housingFundPersonal ? `¥${row.housingFundPersonal.toFixed(2)}` : '¥0.00',
+            incomeTax: row.incomeTax ? `¥${row.incomeTax.toFixed(2)}` : '¥0.00',
+            otherDeduction: row.otherDeduction ? `¥${row.otherDeduction.toFixed(2)}` : '¥0.00',
+            totalNetSalary: row.totalNetSalary ? `¥${row.totalNetSalary.toFixed(2)}` : '¥0.00',
+            paymentStatus: row.paymentStatus === 0 ? '未发放' : '已发放'
+        }))
+
+        // 导出Excel
+        const filename = exportToExcel(exportData, '薪资单', { fieldMapping })
+        ElMessage.success(`导出成功: ${filename}`)
+    } catch (error) {
+        console.error('导出失败:', error)
+        ElMessage.error('导出失败: ' + error.message)
+    }
 }
 
 const handleViewDetail = (row) => {

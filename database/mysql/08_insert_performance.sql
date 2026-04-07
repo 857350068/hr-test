@@ -102,8 +102,8 @@ BEGIN
         ELSE SET v_level = 'D';
         END IF;
 
-        INSERT INTO performance_evaluation (emp_id, year, period_type, self_score, self_comment, supervisor_score, supervisor_comment, final_score, performance_level)
-        VALUES (v_emp_id, 2024, 1, v_self_score, '年度工作完成情况良好', v_supervisor_score, '工作表现优秀', v_final_score, v_level);
+        INSERT INTO performance_evaluation (emp_id, year, period_type, self_score, self_comment, supervisor_score, supervisor_comment, final_score, performance_level, improvement_plan, interview_record, interview_date, evaluation_status)
+        VALUES (v_emp_id, 2024, 1, v_self_score, '年度工作完成情况良好', v_supervisor_score, '工作表现优秀', v_final_score, v_level, '继续提升专业技能', '已完成年度绩效面谈', DATE_FORMAT(CONCAT('2024-12-', FLOOR(1 + RAND() * 28), ' 14:00:00'), '%Y-%m-%d %H:%i:%s'), 3);
 
         SET v_counter = v_counter + 1;
     END LOOP emp_loop;

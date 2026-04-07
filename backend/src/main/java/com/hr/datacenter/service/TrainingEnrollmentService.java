@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hr.datacenter.entity.TrainingEnrollment;
-import com.hr.datacenter.mapper.TrainingEnrollmentMapper;
+import com.hr.datacenter.mapper.mysql.TrainingEnrollmentMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -61,12 +61,9 @@ public class TrainingEnrollmentService extends ServiceImpl<TrainingEnrollmentMap
         if (enrollment.getApprovalStatus() != 0) {
             throw new RuntimeException("该报名记录已审核");
         }
-        
-        enrollment.setApproverId(approverId);
+
         enrollment.setApprovalStatus(approvalStatus);
-        enrollment.setApprovalComment(approvalComment);
-        enrollment.setApprovalDate(java.time.LocalDateTime.now());
-        
+
         return this.updateById(enrollment);
     }
 

@@ -28,14 +28,14 @@ BEGIN
     DECLARE v_counter INT DEFAULT 0;
     DECLARE v_i INT;
 
-    -- 审批人ID(使用用户表中的admin和hr001)
-    SELECT user_id INTO v_approver_id FROM sys_user WHERE username = 'admin' LIMIT 1;
-
     -- 游标:遍历所有在职员工
     DECLARE emp_cursor CURSOR FOR
         SELECT emp_id FROM employee WHERE status = 1 AND deleted = 0 LIMIT 30;
 
     DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_done = 1;
+
+    -- 审批人ID(使用用户表中的admin和hr001)
+    SELECT user_id INTO v_approver_id FROM sys_user WHERE username = 'admin' LIMIT 1;
 
     OPEN emp_cursor;
 
@@ -52,8 +52,8 @@ BEGIN
                 LEAVE leave_loop;
             END IF;
 
-            -- 随机请假类型
-            SET v_leave_type = FLOOR(RAND() * 6);
+            -- 随机请假类型(0-6)
+            SET v_leave_type = FLOOR(RAND() * 7);
 
             -- 随机开始日期(最近60天内)
             SET v_start_date = DATE_SUB(CURDATE(), INTERVAL FLOOR(RAND() * 60) DAY);
@@ -73,7 +73,7 @@ BEGIN
             END IF;
 
             -- 插入请假记录
-            INSERT INTO `leave` (emp_id, leave_type, start_time, end_time, leave_duration, reason, approver_id, approval_status, approval_comment)
+            INSERT INTO `leave` (emp_id, leave_type, start_time, end_time, leave_duration, reason, approver_id, approval_status, approval_comment, approval_time, attachment)
             VALUES (
                 v_emp_id,
                 v_leave_type,
@@ -87,10 +87,13 @@ BEGIN
                     WHEN 3 THEN '结婚事宜'
                     WHEN 4 THEN '产检/产假'
                     WHEN 5 THEN '家中有丧事'
+                    WHEN 6 THEN '其他个人原因'
                 END,
                 v_approver_id,
                 v_approval_status,
-                IF(v_approval_status = 1, '同意', IF(v_approval_status = 2, '拒绝', NULL))
+                IF(v_approval_status = 1, '同意', IF(v_approval_status = 2, '拒绝', NULL)),
+                IF(v_approval_status = 1, DATE_FORMAT(DATE_ADD(v_start_date, INTERVAL 1 DAY), '%Y-%m-%d %H:%i:%s'), NULL),
+                IF(v_leave_type = 1, '/uploads/medical_certificate.pdf', NULL)
             );
 
             SET v_counter = v_counter + 1;

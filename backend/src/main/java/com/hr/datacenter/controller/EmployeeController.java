@@ -1,6 +1,7 @@
 package com.hr.datacenter.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.hr.datacenter.annotation.OperationLog;
 import com.hr.datacenter.common.Result;
 import com.hr.datacenter.entity.Employee;
 import com.hr.datacenter.service.EmployeeService;
@@ -31,6 +32,7 @@ public class EmployeeController {
      * 分页查询员工列表
      */
     @GetMapping("/list")
+    @OperationLog(module = "员工管理", type = "查询", description = "查询员工列表")
     public Result<IPage<Employee>> getEmployeeList(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -57,6 +59,7 @@ public class EmployeeController {
      * 新增员工
      */
     @PostMapping("/add")
+    @OperationLog(module = "员工管理", type = "新增", description = "新增员工信息")
     public Result<String> addEmployee(@RequestBody Employee employee) {
         log.info("新增员工: {}", employee.getEmpName());
         boolean success = employeeService.addEmployee(employee);
@@ -70,6 +73,7 @@ public class EmployeeController {
      * 更新员工
      */
     @PutMapping("/update")
+    @OperationLog(module = "员工管理", type = "更新", description = "更新员工信息")
     public Result<String> updateEmployee(@RequestBody Employee employee) {
         log.info("更新员工: id={}, name={}", employee.getEmpId(), employee.getEmpName());
         boolean success = employeeService.updateEmployee(employee);
@@ -83,6 +87,7 @@ public class EmployeeController {
      * 删除员工
      */
     @DeleteMapping("/delete/{id}")
+    @OperationLog(module = "员工管理", type = "删除", description = "删除员工信息")
     public Result<String> deleteEmployee(@PathVariable Long id) {
         log.info("删除员工: id={}", id);
         boolean success = employeeService.deleteEmployee(id);
@@ -99,5 +104,59 @@ public class EmployeeController {
     public Result<Long> getTotalCount() {
         long totalCount = employeeService.getTotalCount();
         return Result.success(totalCount);
+    }
+
+    /**
+     * 批量导入员工
+     */
+    @PostMapping("/batch-import")
+    public Result<BatchImportResult> batchImport(@RequestBody java.util.List<Employee> employees) {
+        log.info("批量导入员工: 数量={}", employees.size());
+        try {
+            BatchImportResult result = employeeService.batchImport(employees);
+            return Result.success(result);
+        } catch (Exception e) {
+            log.error("批量导入失败", e);
+            return Result.error("批量导入失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 批量导入结果
+     */
+    public static class BatchImportResult {
+        private int successCount;
+        private int failCount;
+        private java.util.List<String> failReasons;
+
+        public BatchImportResult(int successCount, int failCount, java.util.List<String> failReasons) {
+            this.successCount = successCount;
+            this.failCount = failCount;
+            this.failReasons = failReasons;
+        }
+
+        public int getSuccessCount() {
+            return successCount;
+        }
+
+        public void setSuccessCount(int successCount) {
+            this.successCount = successCount;
+        }
+
+        public int getFailCount() {
+            return failCount;
+        }
+
+        public void setFailCount(int failCount) {
+            this.failCount = failCount;
+        }
+
+        public java.util.List<String> getFailReasons() {
+            return failReasons;
+        }
+
+        public void setFailReasons(java.util.List<String> failReasons) {
+            this.failReasons = failReasons;
+        }
     }
 }
