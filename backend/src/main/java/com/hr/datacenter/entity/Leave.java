@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
  * @since 2024-01-20
  */
 @Data
-@TableName("`leave`")
+@TableName("emp_leave")
 public class Leave implements Serializable {
 
     private static final long serialVersionUID = 1L;

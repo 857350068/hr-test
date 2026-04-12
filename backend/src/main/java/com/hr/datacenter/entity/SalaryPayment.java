@@ -240,11 +240,11 @@ public class SalaryPayment implements Serializable {
         this.totalGrossSalary = totalGrossSalary;
     }
 
-    public BigDecimal getSocialInsurancePersonal() {
+    public BigDecimal getSocialInsurance() {
         return socialInsurance;
     }
 
-    public void setSocialInsurancePersonal(BigDecimal socialInsurance) {
+    public void setSocialInsurance(BigDecimal socialInsurance) {
         this.socialInsurance = socialInsurance;
     }
 

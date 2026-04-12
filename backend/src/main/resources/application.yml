@@ -17,7 +17,7 @@ spring:
     # MySQL数据源（主数据源）
     mysql:
       driver-class-name: com.mysql.cj.jdbc.Driver
-      jdbc-url: jdbc:mysql://localhost:3306/hr_datacenter?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      jdbc-url: jdbc:mysql://192.168.116.131:3306/hr_datacenter?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
       username: root
       password: "123456"
       hikari:
@@ -30,7 +30,7 @@ spring:
     # Hive数据源（分析数据源）
     hive:
       driver-class-name: org.apache.hive.jdbc.HiveDriver
-      jdbc-url: jdbc:hive2://localhost:10000/hr_datacenter_dw
+      jdbc-url: jdbc:hive2://192.168.116.131:10000/hr_datacenter_dw
       username: hive
       password: ""
       hikari:

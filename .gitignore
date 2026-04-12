@@ -4,3 +4,24 @@ target
 logs
 *.log
 .DS_Store
+
+# Node modules
+node_modules/
+dist/
+
+# Test files
+test_leave_api.bat
+test_leave_api.sh
+test_leave_functionality.sql
+
+# Report files
+修复报告.md
+项目测试报告.md
+数据库和项目代码对比.md
+数据库建库建表项目需求.md
+虚拟机集群信息显示.md
+终端集群配置的详细完整信息.md
+
+# Build artifacts
+backend/target/
+frontend/dist/

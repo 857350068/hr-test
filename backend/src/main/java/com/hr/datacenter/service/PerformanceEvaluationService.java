@@ -9,6 +9,8 @@ import com.hr.datacenter.mapper.mysql.PerformanceEvaluationMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+
 /**
  * 绩效评估Service
  *
@@ -57,11 +59,11 @@ public class PerformanceEvaluationService extends ServiceImpl<PerformanceEvaluat
         
         // 计算综合评分(自评40% + 上评60%)
         if (evaluation.getSelfScore() != null && evaluation.getSupervisorScore() != null) {
-            double finalScore = evaluation.getSelfScore() * 0.4 + evaluation.getSupervisorScore() * 0.6;
-            evaluation.setFinalScore(Math.round(finalScore * 100) / 100.0);
-            
+            double finalScore = evaluation.getSelfScore().doubleValue() * 0.4 + evaluation.getSupervisorScore().doubleValue() * 0.6;
+            evaluation.setFinalScore(BigDecimal.valueOf(Math.round(finalScore * 100) / 100.0));
+
             // 确定绩效等级
-            String level = determinePerformanceLevel(evaluation.getFinalScore());
+            String level = determinePerformanceLevel(evaluation.getFinalScore().doubleValue());
             evaluation.setPerformanceLevel(level);
         }
         
