@@ -1,0 +1,94 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: hr-data-center
+
+  # 禁用 Jasper（JSP）支持，解决 Tomcat 版本冲突
+  servlet:
+    jsp:
+      enabled: false
+
+  # 多数据源配置
+  datasource:
+    # MySQL数据源（主数据源）
+    mysql:
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      jdbc-url: jdbc:mysql://192.168.116.131:3306/hr_datacenter?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      username: root
+      password: "${MYSQL_PASSWORD}"
+      hikari:
+        minimum-idle: 5
+        maximum-pool-size: 20
+        connection-timeout: 30000
+        idle-timeout: 600000
+        max-lifetime: 1800000
+
+    # Hive数据源（分析数据源）
+    hive:
+      driver-class-name: org.apache.hive.jdbc.HiveDriver
+      jdbc-url: jdbc:hive2://192.168.116.131:10000/hr_datacenter_dw
+      username: hive
+      password: ""
+      hikari:
+        minimum-idle: 1
+        maximum-pool-size: 10
+        connection-timeout: 60000
+        idle-timeout: 600000
+        max-lifetime: 1800000
+
+  # Jackson配置
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+
+  # MVC日期格式化配置
+  mvc:
+    format:
+      date: yyyy-MM-dd
+      date-time: yyyy-MM-dd HH:mm:ss
+
+# MyBatis Plus配置
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.hr.datacenter.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# JWT配置
+jwt:
+  # 512位密钥(64字节)，完美支持HS512算法
+  secret: ${JWT_SECRET}
+  expiration: 7200000  # 2小时(毫秒)
+  header: Authorization
+  prefix: Bearer
+
+# 日志配置
+logging:
+  level:
+    com.hr.datacenter: debug
+    com.baomidou.mybatisplus: debug
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{50} - %msg%n"
+
+# 数据同步配置
+data-sync:
+  # 是否启用数据同步
+  enabled: true
+  # 同步频率（cron表达式）
+  # 维度表：每日凌晨2点全量同步
+  dimension-sync-cron: "0 0 2 * * ?"
+  # 事实表：每小时增量同步
+  fact-sync-cron: "0 0 * * * ?"
+  # 聚合表：每日凌晨3点重新计算
+  aggregation-sync-cron: "0 0 3 * * ?"

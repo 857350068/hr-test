@@ -7,6 +7,7 @@ import com.hr.datacenter.mapper.mysql.MessageMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -23,6 +24,12 @@ public class MessageService extends ServiceImpl<MessageMapper, Message> {
      * 保存消息
      */
     public boolean saveMessage(Message message) {
+        if (message.getCreateTime() == null) {
+            message.setCreateTime(LocalDateTime.now());
+        }
+        if (message.getIsRead() == null) {
+            message.setIsRead(0);
+        }
         return this.save(message);
     }
 
@@ -35,6 +42,7 @@ public class MessageService extends ServiceImpl<MessageMapper, Message> {
                 .orderByDesc(Message::getCreateTime);
 
         int offset = (page - 1) * size;
+        wrapper.last("LIMIT " + offset + "," + size);
         return this.list(wrapper);
     }
 
@@ -55,6 +63,9 @@ public class MessageService extends ServiceImpl<MessageMapper, Message> {
         Message message = this.getById(messageId);
         if (message != null) {
             message.setIsRead(1);
+            if (message.getReadTime() == null) {
+                message.setReadTime(LocalDateTime.now());
+            }
             return this.updateById(message);
         }
         return false;
@@ -71,9 +82,11 @@ public class MessageService extends ServiceImpl<MessageMapper, Message> {
         List<Message> messages = this.list(wrapper);
         for (Message message : messages) {
             message.setIsRead(1);
+            if (message.getReadTime() == null) {
+                message.setReadTime(LocalDateTime.now());
+            }
         }
-
-        return this.updateBatchById(messages);
+        return messages.isEmpty() || this.updateBatchById(messages);
     }
 
     /**

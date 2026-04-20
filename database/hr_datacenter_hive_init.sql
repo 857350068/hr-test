@@ -136,46 +136,30 @@ TBLPROPERTIES (
     'comment'='时间维度表，存储时间相关属性'
 );
 
--- 初始化时间维度数据(生成2024年的时间数据) ✅ 修复：Hive兼容的日期生成逻辑
+-- 初始化时间维度数据(生成2024年的时间数据)
+-- 兼容 Hive 3.1：避免 INSERT + CTE 组合解析失败
 INSERT INTO TABLE dim_time
-WITH date_series AS (
-    SELECT date_add('2024-01-01', t.n) AS date_value
-    FROM (
-        SELECT row_number() over() - 1 AS n
-        FROM (
-            SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5
-            UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10
-        ) t1
-        CROSS JOIN (
-            SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5
-            UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10
-        ) t2
-        CROSS JOIN (
-            SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5
-            UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10
-        ) t3
-    ) t
-    WHERE t.n < 366
-)
 SELECT
-    CAST(year(date_value) * 10000 + month(date_value) * 100 + day(date_value) AS INT) AS date_key,
-    date_value,
-    year(date_value) AS year,
-    quarter(date_value) AS quarter,
-    month(date_value) AS month,
-    day(date_value) AS day,
-    weekofyear(date_value) AS week,
-    pmod(datediff(date_value, '1900-01-07'), 7) + 1 AS day_of_week,
-    datediff(date_value, concat(year(date_value), '-01-01')) + 1 AS day_of_year,
-    pmod(datediff(date_value, '1900-01-07'), 7) IN (5, 6) AS is_weekend,
+    CAST(from_unixtime(unix_timestamp(date_add('2024-01-01', seq.n), 'yyyy-MM-dd'), 'yyyyMMdd') AS INT) AS date_key,
+    date_add('2024-01-01', seq.n) AS date_value,
+    year(date_add('2024-01-01', seq.n)) AS year,
+    quarter(date_add('2024-01-01', seq.n)) AS quarter,
+    month(date_add('2024-01-01', seq.n)) AS month,
+    day(date_add('2024-01-01', seq.n)) AS day,
+    weekofyear(date_add('2024-01-01', seq.n)) AS week,
+    pmod(datediff(date_add('2024-01-01', seq.n), '1900-01-07'), 7) + 1 AS day_of_week,
+    datediff(date_add('2024-01-01', seq.n), concat(year(date_add('2024-01-01', seq.n)), '-01-01')) + 1 AS day_of_year,
+    pmod(datediff(date_add('2024-01-01', seq.n), '1900-01-07'), 7) IN (5, 6) AS is_weekend,
     false AS is_holiday,
     NULL AS holiday_name,
-    monthname(date_value) AS month_name,
-    concat('Q', quarter(date_value)) AS quarter_name,
-    concat(year(date_value), '-Q', quarter(date_value)) AS year_quarter,
-    concat(year(date_value), '-', lpad(month(date_value), 2, '0')) AS year_month,
-    concat(year(date_value), '-W', lpad(weekofyear(date_value), 3, '0')) AS year_week
-FROM date_series;
+    concat(lpad(month(date_add('2024-01-01', seq.n)), 2, '0'), '月') AS month_name,
+    concat('Q', quarter(date_add('2024-01-01', seq.n))) AS quarter_name,
+    concat(year(date_add('2024-01-01', seq.n)), '-Q', quarter(date_add('2024-01-01', seq.n))) AS year_quarter,
+    concat(year(date_add('2024-01-01', seq.n)), '-', lpad(month(date_add('2024-01-01', seq.n)), 2, '0')) AS year_month,
+    concat(year(date_add('2024-01-01', seq.n)), '-W', lpad(weekofyear(date_add('2024-01-01', seq.n)), 3, '0')) AS year_week
+FROM (
+    SELECT posexplode(split(space(365), ' ')) AS (n, x)
+) seq;
 
 -- ============================================================================
 -- 2.4 职位维度表 (dim_position)

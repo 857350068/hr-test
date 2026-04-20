@@ -1,388 +1,437 @@
 -- ============================================================================
--- 人力资源数据中心系统 - MySQL数据库数据插入脚本
--- 版本: 1.0
--- 创建时间: 2024-01-20
--- 说明: 包含大量真实业务数据，用于项目演示和图表展示
--- 密码加密方式: BCrypt (123456 -> $2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH)
+-- MySQL 批量补数脚本（可重复执行）
+-- 目标：修复页面 NoData，补齐员工/考勤/请假/绩效/薪资/培训等核心数据
+-- 规模：新增约 180 名员工 + 多月业务事实数据
 -- ============================================================================
 
 USE hr_datacenter;
-
--- 禁用外键检查
 SET FOREIGN_KEY_CHECKS = 0;
 
--- ============================================================================
--- 1. 系统用户表 (sys_user)
--- ============================================================================
-INSERT INTO `sys_user` (`username`, `password`, `real_name`, `dept_id`, `phone`, `email`, `status`, `last_login_time`) VALUES
-('admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '张伟', 1, '13800138001', 'zhangwei@hrdatacenter.com', 1, '2024-01-19 09:30:00'),
-('hr001', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '李娜', 2, '13800138002', 'lina@hrdatacenter.com', 1, '2024-01-19 08:45:00'),
-('hr002', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '王芳', 2, '13800138003', 'wangfang@hrdatacenter.com', 1, '2024-01-19 09:00:00'),
-('manager001', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '刘强', 3, '13800138004', 'liuqiang@hrdatacenter.com', 1, '2024-01-19 09:15:00'),
-('manager002', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '陈静', 4, '13800138005', 'chenjing@hrdatacenter.com', 1, '2024-01-19 08:50:00'),
-('manager003', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '杨洋', 5, '13800138006', 'yangyang@hrdatacenter.com', 1, '2024-01-19 09:20:00'),
-('fin001', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '赵敏', 6, '13800138007', 'zhaomin@hrdatacenter.com', 1, '2024-01-19 08:55:00'),
-('mkt001', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '孙丽', 7, '13800138008', 'sunli@hrdatacenter.com', 1, '2024-01-19 09:10:00'),
-('emp001', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '周杰', 3, '13800138009', 'zhoujie@hrdatacenter.com', 1, '2024-01-19 09:25:00'),
-('emp002', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '吴刚', 3, '13800138010', 'wugang@hrdatacenter.com', 1, '2024-01-19 09:05:00');
+-- 生成序列 1..180
+DROP TEMPORARY TABLE IF EXISTS tmp_seq;
+CREATE TEMPORARY TABLE tmp_seq (n INT PRIMARY KEY);
+INSERT INTO tmp_seq (n)
+WITH RECURSIVE cte AS (
+    SELECT 1 AS n
+    UNION ALL
+    SELECT n + 1 FROM cte WHERE n < 180
+)
+SELECT n FROM cte;
 
--- ============================================================================
--- 2. 系统角色表 (sys_role)
--- ============================================================================
-INSERT INTO `sys_role` (`role_name`, `role_code`, `role_desc`, `status`) VALUES
-('超级管理员', 'ROLE_ADMIN', '系统超级管理员，拥有所有权限', 1),
-('人力资源管理员', 'ROLE_HR_ADMIN', '人力资源管理员，管理所有人力资源相关功能', 1),
-('部门经理', 'ROLE_MANAGER', '部门经理，管理本部门员工信息', 1),
-('普通员工', 'ROLE_EMPLOYEE', '普通员工，仅查看个人信息', 1),
-('财务人员', 'ROLE_FINANCE', '财务人员，管理薪资发放', 1),
-('市场人员', 'ROLE_MARKET', '市场人员，管理市场相关业务', 1);
+-- 生成月份 2025-10 到 2026-03
+DROP TEMPORARY TABLE IF EXISTS tmp_months;
+CREATE TEMPORARY TABLE tmp_months (
+    ym DATE PRIMARY KEY,
+    y INT NOT NULL,
+    m INT NOT NULL
+);
+INSERT INTO tmp_months (ym, y, m)
+WITH RECURSIVE mth AS (
+    SELECT DATE('2025-10-01') AS ym
+    UNION ALL
+    SELECT DATE_ADD(ym, INTERVAL 1 MONTH) FROM mth WHERE ym < DATE('2026-03-01')
+)
+SELECT ym, YEAR(ym), MONTH(ym) FROM mth;
 
--- ============================================================================
--- 3. 员工表 (employee) - 50名员工
--- ============================================================================
-INSERT INTO `employee` (`emp_no`, `emp_name`, `gender`, `birth_date`, `id_card`, `phone`, `email`, `department`, `position`, `salary`, `hire_date`, `status`, `education`) VALUES
--- 技术部员工
-('EMP001', '张伟', 1, '1990-05-15', '110101199005151234', '13800138001', 'zhangwei@hrdatacenter.com', '技术部', '高级软件工程师', 22000.00, '2018-03-15', 1, '本科'),
-('EMP002', '李娜', 0, '1992-08-22', '110101199208221234', '13800138002', 'lina@hrdatacenter.com', '技术部', '前端开发工程师', 16000.00, '2019-06-10', 1, '本科'),
-('EMP003', '王芳', 0, '1991-11-08', '110101199111081234', '13800138003', 'wangfang@hrdatacenter.com', '技术部', '后端开发工程师', 18000.00, '2018-09-20', 1, '硕士'),
-('EMP004', '刘强', 1, '1988-03-25', '110101198803251234', '13800138004', 'liuqiang@hrdatacenter.com', '技术部', '架构师', 28000.00, '2016-05-18', 1, '硕士'),
-('EMP005', '陈静', 0, '1993-07-12', '110101199307121234', '13800138005', 'chenjing@hrdatacenter.com', '技术部', '测试工程师', 14000.00, '2020-02-28', 1, '本科'),
-('EMP006', '杨洋', 1, '1989-09-30', '110101198909301234', '13800138006', 'yangyang@hrdatacenter.com', '技术部', '产品经理', 19000.00, '2017-08-12', 1, '本科'),
-('EMP007', '赵敏', 0, '1994-01-18', '110101199401181234', '13800138007', 'zhaomin@hrdatacenter.com', '技术部', 'UI设计师', 13000.00, '2021-03-22', 1, '本科'),
-('EMP008', '孙丽', 0, '1990-12-05', '110101199012051234', '13800138008', 'sunli@hrdatacenter.com', '技术部', '运维工程师', 15000.00, '2019-04-15', 1, '本科'),
-('EMP009', '周杰', 1, '1992-04-28', '110101199204281234', '13800138009', 'zhoujie@hrdatacenter.com', '技术部', '数据分析师', 17000.00, '2018-11-08', 1, '硕士'),
-('EMP010', '吴刚', 1, '1987-06-14', '110101198706141234', '13800138010', 'wugang@hrdatacenter.com', '技术部', '技术总监', 32000.00, '2015-02-20', 1, '硕士'),
-('EMP011', '郑华', 1, '1993-10-09', '110101199310091234', '13800138011', 'zhenghua@hrdatacenter.com', '技术部', '初级开发工程师', 12000.00, '2022-01-10', 2, '本科'),
-('EMP012', '冯雪', 0, '1994-03-22', '110101199403221234', '13800138012', 'fengxue@hrdatacenter.com', '技术部', '初级开发工程师', 11500.00, '2022-07-15', 2, '本科'),
-('EMP013', '陈磊', 1, '1991-08-17', '110101199108171234', '13800138013', 'chenlei@hrdatacenter.com', '技术部', '中级开发工程师', 15500.00, '2020-05-20', 1, '本科'),
+-- 生成最近 60 天序列
+DROP TEMPORARY TABLE IF EXISTS tmp_days;
+CREATE TEMPORARY TABLE tmp_days (d INT PRIMARY KEY);
+INSERT INTO tmp_days (d)
+WITH RECURSIVE day_seq AS (
+    SELECT 0 AS d
+    UNION ALL
+    SELECT d + 1 FROM day_seq WHERE d < 59
+)
+SELECT d FROM day_seq;
 
--- 人力资源部员工
-('EMP014', '魏婷婷', 0, '1989-02-11', '110101198902111234', '13800138014', 'weitingting@hrdatacenter.com', '人力资源部', '人力资源经理', 18000.00, '2017-06-01', 1, '硕士'),
-('EMP015', '蒋浩', 1, '1992-05-28', '110101199205281234', '13800138015', 'jianghao@hrdatacenter.com', '人力资源部', '招聘专员', 11000.00, '2020-09-10', 1, '本科'),
-('EMP016', '沈佳', 0, '1993-12-19', '110101199312191234', '13800138016', 'shenjia@hrdatacenter.com', '人力资源部', '薪酬专员', 12000.00, '2021-04-05', 1, '本科'),
-('EMP017', '韩伟', 1, '1990-07-08', '110101199007081234', '13800138017', 'hanwei@hrdatacenter.com', '人力资源部', '培训专员', 10500.00, '2020-11-20', 1, '本科'),
-('EMP018', '杨晓燕', 0, '1994-04-03', '110101199404031234', '13800138018', 'yangxiaoyan@hrdatacenter.com', '人力资源部', '人事助理', 9000.00, '2022-03-15', 2, '本科'),
+-- 1) 员工主数据（新增 EMP1001+）
+INSERT INTO employee (
+    emp_no, emp_name, gender, birth_date, id_card, phone, email, department, position,
+    salary, hire_date, resign_date, status, education
+)
+SELECT
+    CONCAT('EMP', LPAD(1000 + s.n, 4, '0')) AS emp_no,
+    CONCAT(
+        CASE MOD(s.n, 30)
+            WHEN 0 THEN '王' WHEN 1 THEN '李' WHEN 2 THEN '张' WHEN 3 THEN '刘' WHEN 4 THEN '陈'
+            WHEN 5 THEN '杨' WHEN 6 THEN '赵' WHEN 7 THEN '黄' WHEN 8 THEN '周' WHEN 9 THEN '吴'
+            WHEN 10 THEN '徐' WHEN 11 THEN '孙' WHEN 12 THEN '马' WHEN 13 THEN '朱' WHEN 14 THEN '胡'
+            WHEN 15 THEN '郭' WHEN 16 THEN '何' WHEN 17 THEN '高' WHEN 18 THEN '林' WHEN 19 THEN '罗'
+            WHEN 20 THEN '郑' WHEN 21 THEN '梁' WHEN 22 THEN '谢' WHEN 23 THEN '宋' WHEN 24 THEN '唐'
+            WHEN 25 THEN '韩' WHEN 26 THEN '冯' WHEN 27 THEN '于' WHEN 28 THEN '董' ELSE '萧'
+        END,
+        CASE MOD(s.n, 40)
+            WHEN 0 THEN '伟' WHEN 1 THEN '芳' WHEN 2 THEN '娜' WHEN 3 THEN '敏' WHEN 4 THEN '磊'
+            WHEN 5 THEN '静' WHEN 6 THEN '洋' WHEN 7 THEN '强' WHEN 8 THEN '涛' WHEN 9 THEN '杰'
+            WHEN 10 THEN '琳' WHEN 11 THEN '雪' WHEN 12 THEN '博' WHEN 13 THEN '晨' WHEN 14 THEN '宇'
+            WHEN 15 THEN '轩' WHEN 16 THEN '雨桐' WHEN 17 THEN '子涵' WHEN 18 THEN '思远' WHEN 19 THEN '佳宁'
+            WHEN 20 THEN '浩然' WHEN 21 THEN '梦瑶' WHEN 22 THEN '文博' WHEN 23 THEN '欣怡' WHEN 24 THEN '梓轩'
+            WHEN 25 THEN '雅婷' WHEN 26 THEN '俊豪' WHEN 27 THEN '明轩' WHEN 28 THEN '嘉怡' WHEN 29 THEN '天宇'
+            WHEN 30 THEN '晓彤' WHEN 31 THEN '诗涵' WHEN 32 THEN '瑞泽' WHEN 33 THEN '心怡' WHEN 34 THEN '乐天'
+            WHEN 35 THEN '亦凡' WHEN 36 THEN '俊杰' WHEN 37 THEN '雨晨' WHEN 38 THEN '家豪' ELSE '若曦'
+        END
+    ) AS emp_name,
+    MOD(s.n, 2) AS gender,
+    DATE_ADD('1988-01-01', INTERVAL MOD(s.n * 37, 9500) DAY) AS birth_date,
+    CONCAT('430101', DATE_FORMAT(DATE_ADD('1988-01-01', INTERVAL MOD(s.n * 37, 9500) DAY), '%Y%m%d'), LPAD(MOD(1000 + s.n, 4), 4, '0')) AS id_card,
+    CONCAT('13', LPAD(200000000 + s.n, 9, '0')) AS phone,
+    CONCAT('emp', 1000 + s.n, '@hrdatacenter.local') AS email,
+    CASE MOD(s.n, 8)
+        WHEN 0 THEN '技术部'
+        WHEN 1 THEN '研发部'
+        WHEN 2 THEN '市场部'
+        WHEN 3 THEN '人力资源部'
+        WHEN 4 THEN '财务部'
+        WHEN 5 THEN '运营部'
+        WHEN 6 THEN '客服部'
+        ELSE '行政部'
+    END AS department,
+    CASE MOD(s.n, 10)
+        WHEN 0 THEN '高级工程师'
+        WHEN 1 THEN '开发工程师'
+        WHEN 2 THEN '产品经理'
+        WHEN 3 THEN '测试工程师'
+        WHEN 4 THEN '算法工程师'
+        WHEN 5 THEN '运营专员'
+        WHEN 6 THEN '招聘专员'
+        WHEN 7 THEN '会计'
+        WHEN 8 THEN '销售经理'
+        ELSE '数据分析师'
+    END AS position,
+    ROUND(
+        7000
+        + MOD(s.n, 15) * 900
+        + CASE
+            WHEN MOD(s.n, 8) IN (0, 1) THEN 2500
+            WHEN MOD(s.n, 8) = 2 THEN 1800
+            WHEN MOD(s.n, 8) = 4 THEN 1200
+            ELSE 900
+          END
+    , 2) AS salary,
+    DATE_ADD('2016-01-01', INTERVAL MOD(s.n * 23, 3300) DAY) AS hire_date,
+    CASE
+        WHEN MOD(s.n, 17) = 0 THEN DATE_ADD(DATE_ADD('2016-01-01', INTERVAL MOD(s.n * 23, 3300) DAY), INTERVAL (300 + MOD(s.n, 700)) DAY)
+        ELSE NULL
+    END AS resign_date,
+    CASE
+        WHEN MOD(s.n, 17) = 0 THEN 0
+        WHEN MOD(s.n, 13) = 0 THEN 2
+        ELSE 1
+    END AS status,
+    CASE MOD(s.n, 5)
+        WHEN 0 THEN '本科'
+        WHEN 1 THEN '硕士'
+        WHEN 2 THEN '本科'
+        WHEN 3 THEN '大专'
+        ELSE '博士'
+    END AS education
+FROM tmp_seq s
+ON DUPLICATE KEY UPDATE
+    emp_name = VALUES(emp_name),
+    salary = VALUES(salary),
+    department = VALUES(department),
+    position = VALUES(position),
+    status = VALUES(status),
+    education = VALUES(education),
+    update_time = NOW();
 
--- 财务部员工
-('EMP019', '朱明', 1, '1988-09-26', '110101198809261234', '13800138019', 'zhuming@hrdatacenter.com', '财务部', '财务经理', 20000.00, '2016-08-15', 1, '硕士'),
-('EMP020', '秦丽', 0, '1991-01-14', '110101199101141234', '13800138020', 'qinli@hrdatacenter.com', '财务部', '会计', 13000.00, '2019-02-28', 1, '本科'),
-('EMP021', '许强', 1, '1992-06-22', '110101199206221234', '13800138021', 'xuqiang@hrdatacenter.com', '财务部', '出纳', 10000.00, '2020-08-10', 1, '本科'),
-('EMP022', '何芳', 0, '1993-11-09', '110101199311091234', '13800138022', 'hefang@hrdatacenter.com', '财务部', '成本会计', 14000.00, '2019-12-15', 1, '本科'),
-('EMP023', '吕伟', 1, '1990-03-31', '110101199003311234', '13800138023', 'lvwei@hrdatacenter.com', '财务部', '税务专员', 12000.00, '2020-05-20', 1, '本科'),
+-- 2) 考勤（最近 60 天工作日）
+DELETE FROM attendance WHERE remark = 'AUTO_GEN_BULK';
+INSERT INTO attendance (
+    emp_id, attendance_date, clock_in_time, clock_out_time,
+    attendance_type, attendance_status, work_duration, remark
+)
+SELECT
+    e.emp_id,
+    DATE_SUB(CURDATE(), INTERVAL d.d DAY) AS attendance_date,
+    MAKETIME(8 + MOD(e.emp_id + d.d, 2), MOD(e.emp_id + d.d, 6) * 10, 0) AS clock_in_time,
+    MAKETIME(18 + MOD(e.emp_id + d.d, 3), MOD(e.emp_id + d.d, 6) * 5, 0) AS clock_out_time,
+    CASE
+        WHEN MOD(e.emp_id + d.d, 33) = 0 THEN 5
+        WHEN MOD(e.emp_id + d.d, 21) = 0 THEN 1
+        ELSE 0
+    END AS attendance_type,
+    CASE
+        WHEN MOD(e.emp_id + d.d, 33) = 0 THEN 3
+        ELSE 1
+    END AS attendance_status,
+    510 + MOD(e.emp_id * 7 + d.d * 13, 120) AS work_duration,
+    'AUTO_GEN_BULK' AS remark
+FROM employee e
+JOIN tmp_days d ON 1 = 1
+WHERE e.deleted = 0
+  AND e.status IN (1, 2)
+  AND e.emp_no LIKE 'EMP1%'
+  AND WEEKDAY(DATE_SUB(CURDATE(), INTERVAL d.d DAY)) < 5;
 
--- 市场部员工
-('EMP024', '施娜', 0, '1989-07-18', '110101198907181234', '13800138024', 'shina@hrdatacenter.com', '市场部', '市场经理', 22000.00, '2017-04-20', 1, '硕士'),
-('EMP025', '张涛', 1, '1991-10-25', '110101199110251234', '13800138025', 'zhangtao@hrdatacenter.com', '市场部', '销售经理', 19000.00, '2018-06-15', 1, '本科'),
-('EMP026', '孔杰', 1, '1992-02-14', '110101199202141234', '13800138026', 'kongjie@hrdatacenter.com', '市场部', '销售代表', 11000.00, '2020-09-01', 1, '本科'),
-('EMP027', '曹丽', 0, '1993-05-30', '110101199305301234', '13800138027', 'caoli@hrdatacenter.com', '市场部', '销售代表', 10500.00, '2021-01-20', 2, '本科'),
-('EMP028', '严伟', 1, '1990-08-07', '110101199008071234', '13800138028', 'yanwei@hrdatacenter.com', '市场部', '销售代表', 10800.00, '2020-11-10', 1, '本科'),
-('EMP029', '华雪', 0, '1994-01-22', '110101199401221234', '13800138029', 'huaxue@hrdatacenter.com', '市场部', '市场专员', 9500.00, '2022-04-18', 2, '本科'),
-('EMP030', '金明', 1, '1991-12-11', '110101199112111234', '13800138030', 'jinming@hrdatacenter.com', '市场部', '品牌专员', 11500.00, '2020-07-25', 1, '本科'),
+-- 3) 请假
+DELETE FROM emp_leave WHERE reason LIKE 'AUTO_GEN_BULK%';
+INSERT INTO emp_leave (
+    emp_id, leave_type, start_time, end_time, leave_duration,
+    reason, approver_id, approval_status, approval_comment, approval_time
+)
+SELECT
+    e.emp_id,
+    MOD(e.emp_id, 3) AS leave_type,
+    DATE_ADD(CURDATE(), INTERVAL -MOD(e.emp_id, 40) DAY),
+    DATE_ADD(DATE_ADD(CURDATE(), INTERVAL -MOD(e.emp_id, 40) DAY), INTERVAL 1 DAY),
+    16,
+    'AUTO_GEN_BULK-业务请假',
+    1,
+    1,
+    '批量补数自动审批',
+    NOW()
+FROM employee e
+WHERE e.deleted = 0
+  AND e.status IN (1, 2)
+  AND e.emp_no LIKE 'EMP1%'
+  AND MOD(e.emp_id, 19) = 0;
 
--- 运营部员工
-('EMP031', '魏强', 1, '1988-04-15', '110101198804151234', '13800138031', 'weiqiang@hrdatacenter.com', '运营部', '运营总监', 25000.00, '2016-10-08', 1, '硕士'),
-('EMP032', '陶丽', 0, '1990-06-28', '110101199006281234', '13800138032', 'taoli@hrdatacenter.com', '运营部', '产品运营', 14000.00, '2019-03-12', 1, '本科'),
-('EMP033', '姜娜', 0, '1992-09-17', '110101199209171234', '13800138033', 'jiangna@hrdatacenter.com', '运营部', '用户运营', 13000.00, '2019-08-20', 1, '本科'),
-('EMP034', '戚伟', 1, '1993-02-05', '110101199302051234', '13800138034', 'qiwei@hrdatacenter.com', '运营部', '内容运营', 12500.00, '2020-05-15', 1, '本科'),
-('EMP035', '谢芳', 0, '1991-11-23', '110101199111231234', '13800138035', 'xiefang@hrdatacenter.com', '运营部', '活动策划', 12000.00, '2020-10-08', 1, '本科'),
+-- 4) 绩效目标
+DELETE FROM performance_goal WHERE goal_description LIKE 'AUTO_GEN_BULK%';
+INSERT INTO performance_goal (
+    emp_id, year, period_type, goal_description, weight, completion_standard, goal_status
+)
+SELECT
+    e.emp_id,
+    2025,
+    1,
+    CONCAT('AUTO_GEN_BULK-年度目标-', e.position),
+    100,
+    '达成岗位核心目标并完成月度复盘',
+    1
+FROM employee e
+WHERE e.deleted = 0
+  AND e.status IN (1, 2)
+  AND e.emp_no LIKE 'EMP1%';
 
--- 客服部员工
-('EMP036', '邹华', 1, '1989-03-19', '110101198903191234', '13800138036', 'zouhua@hrdatacenter.com', '客服部', '客服经理', 16000.00, '2017-09-05', 1, '本科'),
-('EMP037', '喻明', 1, '1992-07-02', '110101199207021234', '13800138037', 'yuming@hrdatacenter.com', '客服部', '客服主管', 13000.00, '2019-04-18', 1, '本科'),
-('EMP038', '柏丽', 0, '1993-10-14', '110101199310141234', '13800138038', 'baili@hrdatacenter.com', '客服部', '客服专员', 9000.00, '2021-06-10', 1, '本科'),
-('EMP039', '窦伟', 1, '1994-05-28', '110101199405281234', '13800138039', 'douwei@hrdatacenter.com', '客服部', '客服专员', 8800.00, '2022-02-20', 2, '大专'),
-('EMP040', '章雪', 0, '1990-08-31', '110101199008311234', '13800138040', 'zhangxue@hrdatacenter.com', '客服部', '客服专员', 9200.00, '2020-12-15', 1, '本科'),
+-- 5) 绩效评估（2025 年四个季度）
+DROP TEMPORARY TABLE IF EXISTS tmp_quarters;
+CREATE TEMPORARY TABLE tmp_quarters (q INT PRIMARY KEY);
+INSERT INTO tmp_quarters (q) VALUES (1), (2), (3), (4);
 
--- 行政部员工
-('EMP041', '云强', 1, '1987-12-07', '110101198712071234', '13800138041', 'yunqiang@hrdatacenter.com', '行政部', '行政经理', 17000.00, '2016-05-22', 1, '本科'),
-('EMP042', '苏丽', 0, '1991-04-16', '110101199104161234', '13800138042', 'suli@hrdatacenter.com', '行政部', '行政专员', 10000.00, '2020-01-08', 1, '本科'),
-('EMP043', '潘伟', 1, '1992-09-25', '110101199209251234', '13800138043', 'panwei@hrdatacenter.com', '行政部', '后勤专员', 9500.00, '2020-07-30', 1, '本科'),
-('EMP044', '葛芳', 0, '1993-02-12', '110101199302121234', '13800138044', 'gefang@hrdatacenter.com', '行政部', '前台接待', 8500.00, '2021-09-15', 1, '大专'),
-('EMP045', '范明', 1, '1994-06-08', '110101199406081234', '13800138045', 'fanming@hrdatacenter.com', '行政部', '司机', 8000.00, '2022-05-10', 1, '高中'),
+DELETE FROM performance_evaluation WHERE self_comment LIKE 'AUTO_GEN_BULK%';
+INSERT INTO performance_evaluation (
+    emp_id, year, period_type, quarter, month,
+    self_score, self_comment, supervisor_score, supervisor_comment,
+    final_score, performance_level, improvement_plan, interview_record, interview_date, evaluation_status
+)
+SELECT
+    e.emp_id,
+    2025,
+    2,
+    q.q,
+    NULL,
+    ROUND(75 + MOD(e.emp_id + q.q * 7, 25) + MOD(e.emp_id, 10) / 10, 2) AS self_score,
+    'AUTO_GEN_BULK-员工自评',
+    ROUND(76 + MOD(e.emp_id + q.q * 9, 23) + MOD(e.emp_id, 10) / 10, 2) AS supervisor_score,
+    'AUTO_GEN_BULK-主管评语',
+    ROUND((ROUND(75 + MOD(e.emp_id + q.q * 7, 25) + MOD(e.emp_id, 10) / 10, 2) * 0.4)
+        + (ROUND(76 + MOD(e.emp_id + q.q * 9, 23) + MOD(e.emp_id, 10) / 10, 2) * 0.6), 2) AS final_score,
+    CASE
+        WHEN ((75 + MOD(e.emp_id + q.q * 7, 25)) * 0.4 + (76 + MOD(e.emp_id + q.q * 9, 23)) * 0.6) >= 90 THEN 'S'
+        WHEN ((75 + MOD(e.emp_id + q.q * 7, 25)) * 0.4 + (76 + MOD(e.emp_id + q.q * 9, 23)) * 0.6) >= 80 THEN 'A'
+        WHEN ((75 + MOD(e.emp_id + q.q * 7, 25)) * 0.4 + (76 + MOD(e.emp_id + q.q * 9, 23)) * 0.6) >= 70 THEN 'B'
+        WHEN ((75 + MOD(e.emp_id + q.q * 7, 25)) * 0.4 + (76 + MOD(e.emp_id + q.q * 9, 23)) * 0.6) >= 60 THEN 'C'
+        ELSE 'D'
+    END AS performance_level,
+    'AUTO_GEN_BULK-持续改进',
+    'AUTO_GEN_BULK-季度面谈',
+    DATE_ADD('2025-01-15', INTERVAL (q.q - 1) * 90 DAY),
+    3
+FROM employee e
+JOIN tmp_quarters q ON 1 = 1
+WHERE e.deleted = 0
+  AND e.status IN (1, 2)
+  AND e.emp_no LIKE 'EMP1%';
 
--- 研发部员工
-('EMP046', '彭雪', 0, '1988-10-21', '110101198810211234', '13800138046', 'pengxue@hrdatacenter.com', '研发部', '研发总监', 27000.00, '2016-07-15', 1, '博士'),
-('EMP047', '鲁伟', 1, '1990-01-09', '110101199001091234', '13800138047', 'luwei@hrdatacenter.com', '研发部', '算法工程师', 21000.00, '2018-02-28', 1, '硕士'),
-('EMP048', '韦丽', 0, '1991-05-18', '110101199105181234', '13800138048', 'weili@hrdatacenter.com', '研发部', '机器学习工程师', 20000.00, '2018-08-10', 1, '硕士'),
-('EMP049', '昌华', 1, '1992-08-05', '110101199208051234', '13800138049', 'changhua@hrdatacenter.com', '研发部', '大数据工程师', 18500.00, '2019-03-22', 1, '本科'),
-('EMP050', '马芳', 0, '1993-11-30', '110101199311301234', '13800138050', 'mafang@hrdatacenter.com', '研发部', '数据工程师', 16500.00, '2019-10-15', 1, '硕士');
+-- 6) 薪资发放（6 个月）
+INSERT INTO salary_payment (
+    emp_id, year, month,
+    basic_salary, performance_salary,
+    position_allowance, transport_allowance, communication_allowance, meal_allowance, other_allowance,
+    overtime_pay, total_gross_salary,
+    social_insurance, housing_fund, income_tax, other_deduction,
+    total_net_salary, payment_status, payment_date, remark
+)
+SELECT
+    e.emp_id,
+    m.y,
+    m.m,
+    ROUND(e.salary * (0.90 + MOD(e.emp_id + m.m, 4) * 0.03), 2) AS basic_salary,
+    ROUND(e.salary * (0.10 + MOD(e.emp_id + m.m, 5) * 0.02), 2) AS performance_salary,
+    ROUND(500 + MOD(e.emp_id, 8) * 120, 2) AS position_allowance,
+    300.00 AS transport_allowance,
+    200.00 AS communication_allowance,
+    300.00 AS meal_allowance,
+    0.00 AS other_allowance,
+    ROUND(MOD(e.emp_id + m.m, 6) * 120, 2) AS overtime_pay,
+    ROUND(
+        ROUND(e.salary * (0.90 + MOD(e.emp_id + m.m, 4) * 0.03), 2)
+        + ROUND(e.salary * (0.10 + MOD(e.emp_id + m.m, 5) * 0.02), 2)
+        + ROUND(500 + MOD(e.emp_id, 8) * 120, 2)
+        + 300 + 200 + 300 + ROUND(MOD(e.emp_id + m.m, 6) * 120, 2)
+    , 2) AS total_gross_salary,
+    ROUND(e.salary * 0.08, 2) AS social_insurance,
+    ROUND(e.salary * 0.08, 2) AS housing_fund,
+    ROUND(e.salary * 0.03, 2) AS income_tax,
+    0.00 AS other_deduction,
+    ROUND(
+        ROUND(
+            ROUND(e.salary * (0.90 + MOD(e.emp_id + m.m, 4) * 0.03), 2)
+            + ROUND(e.salary * (0.10 + MOD(e.emp_id + m.m, 5) * 0.02), 2)
+            + ROUND(500 + MOD(e.emp_id, 8) * 120, 2)
+            + 300 + 200 + 300 + ROUND(MOD(e.emp_id + m.m, 6) * 120, 2)
+        , 2)
+        - ROUND(e.salary * 0.08, 2)
+        - ROUND(e.salary * 0.08, 2)
+        - ROUND(e.salary * 0.03, 2)
+    , 2) AS total_net_salary,
+    1 AS payment_status,
+    LAST_DAY(m.ym) AS payment_date,
+    'AUTO_GEN_BULK'
+FROM employee e
+JOIN tmp_months m ON 1 = 1
+WHERE e.deleted = 0
+  AND e.status IN (1, 2)
+  AND e.emp_no LIKE 'EMP1%'
+ON DUPLICATE KEY UPDATE
+    basic_salary = VALUES(basic_salary),
+    performance_salary = VALUES(performance_salary),
+    total_gross_salary = VALUES(total_gross_salary),
+    total_net_salary = VALUES(total_net_salary),
+    payment_status = VALUES(payment_status),
+    payment_date = VALUES(payment_date),
+    remark = VALUES(remark),
+    update_time = NOW();
 
--- ============================================================================
--- 4. 考勤记录表 (attendance) - 2024年1月考勤数据
--- ============================================================================
-INSERT INTO `attendance` (`emp_id`, `attendance_date`, `clock_in_time`, `clock_out_time`, `attendance_type`, `attendance_status`, `work_duration`, `remark`) VALUES
--- 员工1-10的2024年1月考勤数据
-(1, '2024-01-02', '08:55:00', '18:05:00', 0, 1, 550, NULL),
-(1, '2024-01-03', '08:50:00', '18:10:00', 0, 1, 560, NULL),
-(1, '2024-01-04', '08:58:00', '18:00:00', 0, 1, 542, NULL),
-(1, '2024-01-05', '09:02:00', '18:15:00', 1, 1, 553, '迟到2分钟'),
-(1, '2024-01-08', '08:45:00', '18:20:00', 0, 1, 575, NULL),
-(1, '2024-01-09', '08:52:00', '18:00:00', 0, 1, 528, NULL),
-(1, '2024-01-10', '08:55:00', '18:05:00', 0, 1, 550, NULL),
-(1, '2024-01-11', '08:48:00', '18:10:00', 0, 1, 562, NULL),
-(1, '2024-01-12', '08:50:00', '18:00:00', 0, 1, 550, NULL),
-(1, '2024-01-15', '08:55:00', '18:05:00', 0, 1, 550, NULL),
-(1, '2024-01-16', '08:52:00', '18:10:00', 0, 1, 558, NULL),
-(1, '2024-01-17', '08:58:00', '18:00:00', 0, 1, 542, NULL),
-(1, '2024-01-18', '08:50:00', '18:05:00', 0, 1, 555, NULL),
-(1, '2024-01-19', '08:45:00', '18:15:00', 0, 1, 570, NULL),
-(1, '2024-01-22', '09:05:00', '18:20:00', 1, 1, 555, '迟到5分钟'),
-(1, '2024-01-23', '08:48:00', '18:00:00', 0, 1, 552, NULL),
-(1, '2024-01-24', '08:52:00', '18:10:00', 0, 1, 558, NULL),
-(1, '2024-01-25', '08:55:00', '18:05:00', 0, 1, 550, NULL),
-(1, '2024-01-26', '08:50:00', '18:00:00', 0, 1, 550, NULL),
-(1, '2024-01-29', '08:58:00', '18:15:00', 0, 1, 557, NULL),
-(1, '2024-01-30', '08:45:00', '18:20:00', 0, 1, 575, NULL),
-(1, '2024-01-31', '08:52:00', '18:00:00', 0, 1, 548, NULL),
+-- 7) 薪资调整
+DELETE FROM salary_adjustment WHERE reason LIKE 'AUTO_GEN_BULK%';
+INSERT INTO salary_adjustment (
+    emp_id, adjustment_type, before_salary, after_salary, adjustment_rate, effective_date,
+    reason, approver_id, approval_status, approval_comment, approval_date, creator_id
+)
+SELECT
+    e.emp_id,
+    3,
+    ROUND(e.salary * 0.95, 2),
+    e.salary,
+    ROUND((e.salary - ROUND(e.salary * 0.95, 2)) / ROUND(e.salary * 0.95, 2) * 100, 2),
+    DATE('2025-01-01'),
+    'AUTO_GEN_BULK-年度调薪',
+    1,
+    1,
+    '批量补数自动通过',
+    NOW(),
+    1
+FROM employee e
+WHERE e.deleted = 0
+  AND e.status IN (1, 2)
+  AND e.emp_no LIKE 'EMP1%'
+  AND MOD(e.emp_id, 10) = 0;
 
-(2, '2024-01-02', '09:00:00', '18:00:00', 0, 1, 540, NULL),
-(2, '2024-01-03', '08:55:00', '18:05:00', 0, 1, 550, NULL),
-(2, '2024-01-04', '09:02:00', '18:00:00', 1, 1, 528, '迟到2分钟'),
-(2, '2024-01-05', '08:50:00', '18:10:00', 0, 1, 560, NULL),
-(2, '2024-01-08', '08:58:00', '18:00:00', 0, 1, 542, NULL),
-(2, '2024-01-09', '08:52:00', '18:05:00', 0, 1, 553, NULL),
-(2, '2024-01-10', '08:55:00', '18:15:00', 0, 1, 560, NULL),
-(2, '2024-01-11', '09:05:00', '18:00:00', 1, 1, 515, '迟到5分钟'),
-(2, '2024-01-12', '08:48:00', '18:10:00', 0, 1, 562, NULL),
-(2, '2024-01-15', '08:50:00', '18:05:00', 0, 1, 555, NULL),
-(2, '2024-01-16', '08:55:00', '18:00:00', 0, 1, 545, NULL),
-(2, '2024-01-17', '08:52:00', '18:10:00', 0, 1, 558, NULL),
-(2, '2024-01-18', '08:58:00', '18:00:00', 0, 1, 542, NULL),
-(2, '2024-01-19', '08:45:00', '18:15:00', 0, 1, 570, NULL),
-(2, '2024-01-22', '08:50:00', '18:20:00', 0, 1, 570, NULL),
-(2, '2024-01-23', '09:00:00', '18:00:00', 0, 1, 540, NULL),
-(2, '2024-01-24', '08:55:00', '18:05:00', 0, 1, 550, NULL),
-(2, '2024-01-25', '08:52:00', '18:10:00', 0, 1, 558, NULL),
-(2, '2024-01-26', '08:58:00', '18:00:00', 0, 1, 542, NULL),
-(2, '2024-01-29', '08:50:00', '18:15:00', 0, 1, 565, NULL),
-(2, '2024-01-30', '08:45:00', '18:20:00', 0, 1, 575, NULL),
-(2, '2024-01-31', '08:55:00', '18:00:00', 0, 1, 545, NULL),
+-- 8) 培训课程 + 报名
+DELETE FROM training_enrollment WHERE feedback = 'AUTO_GEN_BULK';
+DELETE FROM training_course WHERE course_name LIKE 'AUTO_GEN_BULK课程%';
 
-(3, '2024-01-02', '08:50:00', '18:10:00', 0, 1, 560, NULL),
-(3, '2024-01-03', '08:55:00', '18:00:00', 0, 1, 545, NULL),
-(3, '2024-01-04', '08:48:00', '18:05:00', 0, 1, 557, NULL),
-(3, '2024-01-05', '08:52:00', '18:15:00', 0, 1, 563, NULL),
-(3, '2024-01-08', '08:58:00', '18:00:00', 0, 1, 542, NULL),
-(3, '2024-01-09', '08:50:00', '18:10:00', 0, 1, 560, NULL),
-(3, '2024-01-10', '08:55:00', '18:05:00', 0, 1, 550, NULL),
-(3, '2024-01-11', '08:45:00', '18:20:00', 0, 1, 575, NULL),
-(3, '2024-01-12', '08:52:00', '18:00:00', 0, 1, 548, NULL),
-(3, '2024-01-15', '08:58:00', '18:10:00', 0, 1, 552, NULL),
-(3, '2024-01-16', '08:50:00', '18:05:00', 0, 1, 555, NULL),
-(3, '2024-01-17', '09:02:00', '18:00:00', 1, 1, 528, '迟到2分钟'),
-(3, '2024-01-18', '08:48:00', '18:15:00', 0, 1, 567, NULL),
-(3, '2024-01-19', '08:55:00', '18:00:00', 0, 1, 545, NULL),
-(3, '2024-01-22', '08:50:00', '18:10:00', 0, 1, 560, NULL),
-(3, '2024-01-23', '08:58:00', '18:05:00', 0, 1, 547, NULL),
-(3, '2024-01-24', '08:45:00', '18:20:00', 0, 1, 575, NULL),
-(3, '2024-01-25', '08:52:00', '18:00:00', 0, 1, 548, NULL),
-(3, '2024-01-26', '08:55:00', '18:15:00', 0, 1, 560, NULL),
-(3, '2024-01-29', '08:50:00', '18:10:00', 0, 1, 560, NULL),
-(3, '2024-01-30', '08:48:00', '18:05:00', 0, 1, 557, NULL),
-(3, '2024-01-31', '08:55:00', '18:00:00', 0, 1, 545, NULL);
+INSERT INTO training_course (
+    course_name, course_type, course_description, instructor, duration, location,
+    start_date, end_date, capacity, enrolled_count, course_status
+)
+SELECT
+    CONCAT('AUTO_GEN_BULK课程', LPAD(s.n, 2, '0')),
+    MOD(s.n, 5) + 1,
+    '批量补数课程',
+    CONCAT('讲师', s.n),
+    8 + MOD(s.n, 4) * 4,
+    CONCAT('培训室', CHAR(65 + MOD(s.n, 5))),
+    DATE_ADD('2026-01-01 09:00:00', INTERVAL s.n DAY),
+    DATE_ADD('2026-01-01 17:00:00', INTERVAL s.n DAY),
+    30 + MOD(s.n, 3) * 10,
+    0,
+    0
+FROM (
+    SELECT 1 AS n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6
+    UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12
+) s;
 
--- 继续插入更多员工考勤数据...
-(4, '2024-01-02', '08:45:00', '18:20:00', 0, 1, 575, NULL),
-(4, '2024-01-03', '08:50:00', '18:05:00', 0, 1, 555, NULL),
-(4, '2024-01-04', '08:55:00', '18:10:00', 0, 1, 555, NULL),
-(4, '2024-01-05', '08:48:00', '18:00:00', 0, 1, 552, NULL),
-(4, '2024-01-08', '08:52:00', '18:15:00', 0, 1, 563, NULL),
-(4, '2024-01-09', '08:58:00', '18:00:00', 0, 1, 542, NULL),
-(4, '2024-01-10', '08:50:00', '18:10:00', 0, 1, 560, NULL),
-(4, '2024-01-11', '08:45:00', '18:05:00', 0, 1, 560, NULL),
-(4, '2024-01-12', '08:55:00', '18:20:00', 0, 1, 565, NULL),
-(4, '2024-01-15', '08:50:00', '18:00:00', 0, 1, 550, NULL),
-(4, '2024-01-16', '08:52:00', '18:10:00', 0, 1, 558, NULL),
-(4, '2024-01-17', '08:48:00', '18:05:00', 0, 1, 557, NULL),
-(4, '2024-01-18', '08:55:00', '18:15:00', 0, 1, 560, NULL),
-(4, '2024-01-19', '08:50:00', '18:00:00', 0, 1, 550, NULL),
-(4, '2024-01-22', '08:58:00', '18:20:00', 0, 1, 562, NULL),
-(4, '2024-01-23', '08:45:00', '18:05:00', 0, 1, 560, NULL),
-(4, '2024-01-24', '08:52:00', '18:10:00', 0, 1, 558, NULL),
-(4, '2024-01-25', '08:55:00', '18:00:00', 0, 1, 545, NULL),
-(4, '2024-01-26', '08:50:00', '18:15:00', 0, 1, 565, NULL),
-(4, '2024-01-29', '08:48:00', '18:20:00', 0, 1, 572, NULL),
-(4, '2024-01-30', '08:55:00', '18:05:00', 0, 1, 550, NULL),
-(4, '2024-01-31', '08:50:00', '18:10:00', 0, 1, 560, NULL);
+DROP TEMPORARY TABLE IF EXISTS tmp_training_course_ids;
+CREATE TEMPORARY TABLE tmp_training_course_ids (
+    course_id BIGINT PRIMARY KEY
+);
+INSERT INTO tmp_training_course_ids (course_id)
+SELECT course_id
+FROM training_course
+WHERE course_name LIKE 'AUTO_GEN_BULK课程%';
 
--- 添加一些请假和加班记录
-INSERT INTO `attendance` (`emp_id`, `attendance_date`, `clock_in_time`, `clock_out_time`, `attendance_type`, `attendance_status`, `work_duration`, `remark`) VALUES
-(5, '2024-01-15', NULL, NULL, 4, 2, NULL, '请假'),
-(5, '2024-01-16', NULL, NULL, 4, 2, NULL, '请假'),
-(6, '2024-01-10', '08:45:00', '21:00:00', 5, 3, 750, '加班'),
-(6, '2024-01-17', '08:50:00', '20:30:00', 5, 3, 700, '加班'),
-(7, '2024-01-08', '09:15:00', '18:00:00', 1, 1, 525, '迟到15分钟'),
-(8, '2024-01-22', NULL, NULL, 4, 2, NULL, '请假'),
-(9, '2024-01-25', '08:40:00', '19:30:00', 5, 3, 660, '加班'),
-(10, '2024-01-18', '08:30:00', '20:00:00', 5, 3, 690, '加班');
+INSERT INTO training_enrollment (
+    course_id, emp_id, enrollment_time, approval_status, approver_id, attendance_status, score, feedback
+)
+SELECT
+    c.course_id,
+    e.emp_id,
+    DATE_SUB(NOW(), INTERVAL MOD(e.emp_id, 20) DAY),
+    1,
+    1,
+    CASE WHEN MOD(e.emp_id, 10) = 0 THEN 2 ELSE 1 END,
+    70 + MOD(e.emp_id, 31),
+    'AUTO_GEN_BULK'
+FROM tmp_training_course_ids c
+JOIN employee e ON e.deleted = 0 AND e.status IN (1, 2) AND e.emp_no LIKE 'EMP1%'
+WHERE MOD(e.emp_id + c.course_id, 9) = 0;
 
--- ============================================================================
--- 5. 请假记录表 (leave)
--- ============================================================================
-INSERT INTO `leave` (`emp_id`, `leave_type`, `start_time`, `end_time`, `leave_duration`, `reason`, `approver_id`, `approval_status`, `approval_comment`, `approval_time`) VALUES
-(5, 0, '2024-01-15 09:00:00', '2024-01-16 18:00:00', 16, '个人事务处理', 14, 1, '同意', '2024-01-14 10:30:00'),
-(8, 1, '2024-01-22 09:00:00', '2024-01-22 18:00:00', 8, '身体不适，去医院看病', 14, 1, '同意，注意休息', '2024-01-21 14:20:00'),
-(12, 2, '2024-01-29 09:00:00', '2024-01-31 18:00:00', 24, '年假休假', 1, 1, '同意', '2024-01-28 09:15:00'),
-(15, 0, '2024-01-10 09:00:00', '2024-01-10 18:00:00', 8, '家庭事务', 14, 1, '同意', '2024-01-09 16:45:00'),
-(20, 1, '2024-01-18 09:00:00', '2024-01-19 18:00:00', 16, '感冒发烧', 19, 1, '同意，早日康复', '2024-01-17 11:30:00'),
-(26, 3, '2024-01-25 09:00:00', '2024-01-26 18:00:00', 16, '结婚', 24, 1, '恭喜，同意', '2024-01-20 10:00:00'),
-(33, 2, '2024-01-08 09:00:00', '2024-01-12 18:00:00', 40, '年假旅游', 31, 1, '同意', '2024-01-05 15:20:00'),
-(39, 4, '2024-01-28 09:00:00', '2024-02-02 18:00:00', 40, '产假', 36, 1, '同意', '2024-01-25 14:10:00'),
-(44, 0, '2024-01-19 09:00:00', '2024-01-19 18:00:00', 8, '个人事务', 41, 1, '同意', '2024-01-18 17:30:00'),
-(2, 6, '2024-01-05 09:00:00', '2024-01-05 18:00:00', 8, '其他原因', 1, 1, '同意', '2024-01-04 09:45:00');
+-- 8.1) 清洗历史脏姓名（数字名/新增员工/测试员工/Hive前缀）
+UPDATE employee
+SET emp_name = CONCAT(
+    CASE MOD(emp_id, 30)
+        WHEN 0 THEN '王' WHEN 1 THEN '李' WHEN 2 THEN '张' WHEN 3 THEN '刘' WHEN 4 THEN '陈'
+        WHEN 5 THEN '杨' WHEN 6 THEN '赵' WHEN 7 THEN '黄' WHEN 8 THEN '周' WHEN 9 THEN '吴'
+        WHEN 10 THEN '徐' WHEN 11 THEN '孙' WHEN 12 THEN '马' WHEN 13 THEN '朱' WHEN 14 THEN '胡'
+        WHEN 15 THEN '郭' WHEN 16 THEN '何' WHEN 17 THEN '高' WHEN 18 THEN '林' WHEN 19 THEN '罗'
+        WHEN 20 THEN '郑' WHEN 21 THEN '梁' WHEN 22 THEN '谢' WHEN 23 THEN '宋' WHEN 24 THEN '唐'
+        WHEN 25 THEN '韩' WHEN 26 THEN '冯' WHEN 27 THEN '于' WHEN 28 THEN '董' ELSE '萧'
+    END,
+    CASE MOD(emp_id, 40)
+        WHEN 0 THEN '伟' WHEN 1 THEN '芳' WHEN 2 THEN '娜' WHEN 3 THEN '敏' WHEN 4 THEN '磊'
+        WHEN 5 THEN '静' WHEN 6 THEN '洋' WHEN 7 THEN '强' WHEN 8 THEN '涛' WHEN 9 THEN '杰'
+        WHEN 10 THEN '琳' WHEN 11 THEN '雪' WHEN 12 THEN '博' WHEN 13 THEN '晨' WHEN 14 THEN '宇'
+        WHEN 15 THEN '轩' WHEN 16 THEN '雨桐' WHEN 17 THEN '子涵' WHEN 18 THEN '思远' WHEN 19 THEN '佳宁'
+        WHEN 20 THEN '浩然' WHEN 21 THEN '梦瑶' WHEN 22 THEN '文博' WHEN 23 THEN '欣怡' WHEN 24 THEN '梓轩'
+        WHEN 25 THEN '雅婷' WHEN 26 THEN '俊豪' WHEN 27 THEN '明轩' WHEN 28 THEN '嘉怡' WHEN 29 THEN '天宇'
+        WHEN 30 THEN '晓彤' WHEN 31 THEN '诗涵' WHEN 32 THEN '瑞泽' WHEN 33 THEN '心怡' WHEN 34 THEN '乐天'
+        WHEN 35 THEN '亦凡' WHEN 36 THEN '俊杰' WHEN 37 THEN '雨晨' WHEN 38 THEN '家豪' ELSE '若曦'
+    END
+)
+WHERE deleted = 0
+  AND (emp_name REGEXP '[0-9]' OR emp_name LIKE '员工%' OR emp_name LIKE '新增员工%' OR emp_name LIKE '测试员工%' OR emp_name LIKE 'Hive%');
 
--- ============================================================================
--- 6. 绩效目标表 (performance_goal)
--- ============================================================================
-INSERT INTO `performance_goal` (`emp_id`, `year`, `period_type`, `goal_description`, `weight`, `completion_standard`, `goal_status`) VALUES
-(1, 2024, 1, '完成核心系统架构优化，提升系统性能30%', 30, '系统响应时间减少30%，并发处理能力提升30%', 1),
-(1, 2024, 1, '带领团队完成3个重要项目交付', 25, '3个项目按时交付，质量达标', 1),
-(1, 2024, 1, '培养2名技术骨干，提升团队整体技术能力', 20, '2名员工晋升为高级工程师', 1),
-(1, 2024, 1, '建立技术文档体系，完善开发规范', 15, '完成技术文档编写，团队培训覆盖率100%', 1),
-(1, 2024, 1, '参与公司技术决策，提供技术方案支持', 10, '参与5个以上技术评审会议', 1),
+-- 9) 兼容分析模块：确保 dim_employee 可查
+CREATE OR REPLACE VIEW dim_employee AS
+SELECT
+    emp_id,
+    emp_no,
+    emp_name,
+    gender,
+    birth_date,
+    id_card,
+    phone,
+    email,
+    department,
+    position,
+    salary AS current_salary,
+    hire_date,
+    resign_date,
+    status,
+    education,
+    DATE_FORMAT(COALESCE(update_time, create_time, NOW()), '%Y%m%d') AS dt
+FROM employee
+WHERE deleted = 0;
 
-(2, 2024, 1, '完成前端框架升级，提升开发效率', 30, '升级Vue3框架，开发效率提升20%', 1),
-(2, 2024, 1, '优化用户界面，提升用户体验', 25, '用户满意度提升15%', 1),
-(2, 2024, 1, '完成移动端适配，支持多端访问', 25, '完成H5版本开发，支持主流浏览器', 1),
-(2, 2024, 1, '学习新技术，提升个人技术能力', 20, '掌握至少2个新技术，并应用到项目中', 1),
-
-(3, 2024, 1, '优化后端API接口，提升接口性能', 30, '接口响应时间减少40%', 1),
-(3, 2024, 1, '完善系统安全机制，防范安全风险', 25, '通过安全审计，无重大安全漏洞', 1),
-(3, 2024, 1, '重构核心模块，提升代码质量', 25, '代码覆盖率提升至80%以上', 1),
-(3, 2024, 1, '指导初级开发人员，提升团队能力', 20, '指导3名初级开发，帮助其快速成长', 1),
-
-(4, 2024, 1, '制定技术战略规划，引领技术发展方向', 30, '完成年度技术规划制定', 1),
-(4, 2024, 1, '搭建技术平台，提升研发效率', 25, '完成DevOps平台搭建', 1),
-(4, 2024, 1, '引进新技术，推动技术创新', 25, '引进2项新技术，并成功应用', 1),
-(4, 2024, 1, '培养技术团队，提升整体技术水平', 20, '团队技术水平提升，员工满意度90%以上', 1),
-
-(14, 2024, 1, '完成年度招聘计划，满足各部门用人需求', 35, '招聘到岗率95%以上', 1),
-(14, 2024, 1, '优化招聘流程，提升招聘效率', 25, '招聘周期缩短20%', 1),
-(14, 2024, 1, '完善员工培训体系，提升员工能力', 25, '员工培训覆盖率100%', 1),
-(14, 2024, 1, '提升员工满意度，降低员工流失率', 15, '员工满意度85%以上，流失率低于5%', 1),
-
-(19, 2024, 1, '做好财务预算管理，控制成本支出', 30, '成本控制在预算范围内', 1),
-(19, 2024, 1, '优化财务流程，提升工作效率', 25, '财务处理效率提升20%', 1),
-(19, 2024, 1, '加强财务风险管控，防范财务风险', 25, '无重大财务风险事件', 1),
-(19, 2024, 1, '提供财务数据分析，支持经营决策', 20, '完成月度财务分析报告', 1),
-
-(24, 2024, 1, '完成年度销售目标，实现营收增长', 35, '销售额增长20%', 1),
-(24, 2024, 1, '拓展新客户，扩大市场份额', 25, '新客户数量增长30%', 1),
-(24, 2024, 1, '提升品牌知名度，增强品牌影响力', 25, '品牌曝光量提升50%', 1),
-(24, 2024, 1, '优化营销策略，提高营销效果', 15, '营销ROI提升15%', 1);
-
--- ============================================================================
--- 7. 绩效评估表 (performance_evaluation)
--- ============================================================================
-INSERT INTO `performance_evaluation` (`emp_id`, `year`, `period_type`, `quarter`, `self_score`, `self_comment`, `supervisor_score`, `supervisor_comment`, `final_score`, `performance_level`, `improvement_plan`, `interview_date`, `evaluation_status`) VALUES
-(1, 2024, 2, 1, 92.5, '本季度完成了系统架构优化，提升了系统性能，带领团队按时完成了项目交付', 93.0, '工作表现优秀，技术能力强，团队管理能力突出', 92.8, 'A', '继续保持优秀表现，加强技术创新和团队建设', '2024-01-20 14:00:00', 3),
-(2, 2024, 2, 1, 88.0, '完成了前端框架升级，优化了用户界面，提升了用户体验', 89.5, '工作认真负责，技术能力良好，用户体验优化效果明显', 88.8, 'A', '继续提升技术能力，加强与其他团队的协作', '2024-01-18 10:30:00', 3),
-(3, 2024, 2, 1, 90.0, '优化了后端API接口，提升了系统安全性，重构了核心模块', 91.0, '技术能力强，代码质量高，工作态度认真', 90.5, 'A', '继续保持良好的工作状态，加强团队协作', '2024-01-19 15:00:00', 3),
-(4, 2024, 2, 1, 95.0, '制定了技术战略规划，搭建了技术平台，引进了新技术', 95.5, '技术视野开阔，战略思维强，领导能力突出', 95.3, 'S', '继续保持领先地位，加强技术创新和人才培养', '2024-01-17 16:00:00', 3),
-(5, 2024, 2, 1, 85.0, '完成了测试工作，保证了产品质量，发现并修复了多个bug', 86.0, '工作细致认真，测试能力强，责任心强', 85.5, 'A', '继续提升测试技能，学习自动化测试技术', '2024-01-21 11:00:00', 3),
-(6, 2024, 2, 1, 87.5, '完成了产品规划和设计，与团队协作良好，产品按时上线', 88.0, '产品思维清晰，沟通能力强，项目管理能力良好', 87.8, 'A', '继续提升产品能力，加强市场调研和用户研究', '2024-01-22 09:30:00', 3),
-(7, 2024, 2, 1, 86.0, '完成了UI设计工作，界面美观大方，用户体验良好', 87.0, '设计能力强，创意丰富，工作认真负责', 86.5, 'A', '继续提升设计水平，学习新的设计工具和技巧', '2024-01-19 13:30:00', 3),
-(8, 2024, 2, 1, 88.5, '完成了运维工作，保证了系统稳定运行，及时处理了故障', 89.0, '运维能力强，问题处理及时，工作态度认真', 88.8, 'A', '继续提升运维技能，学习云原生技术', '2024-01-20 10:00:00', 3),
-(9, 2024, 2, 1, 89.0, '完成了数据分析工作，提供了有价值的分析报告，支持了业务决策', 90.0, '数据分析能力强，业务理解深入，报告质量高', 89.5, 'A', '继续提升数据分析能力，学习机器学习技术', '2024-01-18 14:30:00', 3),
-(10, 2024, 2, 1, 96.0, '制定了技术发展方向，带领技术团队取得了显著成绩', 96.5, '技术领导能力强，战略眼光长远，团队管理优秀', 96.3, 'S', '继续保持技术领先，加强团队建设和人才培养', '2024-01-17 10:00:00', 3),
-
-(14, 2024, 2, 1, 90.0, '完成了招聘计划，优化了招聘流程，提升了招聘效率', 91.0, '工作能力强，执行力高，团队管理能力突出', 90.5, 'A', '继续优化人力资源管理体系，提升员工满意度', '2024-01-19 11:30:00', 3),
-(15, 2024, 2, 1, 85.5, '完成了招聘任务，拓展了招聘渠道，提升了招聘质量', 86.5, '工作认真负责，沟通能力强，执行力良好', 86.0, 'A', '继续提升招聘技能，学习新的招聘方法', '2024-01-21 15:00:00', 3),
-(16, 2024, 2, 1, 87.0, '完成了薪酬核算工作，保证了薪酬发放的准确性', 88.0, '工作细致认真，责任心强，数据准确性高', 87.5, 'A', '继续提升薪酬管理能力，学习薪酬体系设计', '2024-01-20 14:00:00', 3),
-(17, 2024, 2, 1, 86.5, '完成了培训计划，组织了多场培训活动，提升了员工能力', 87.0, '培训组织能力强，沟通协调能力良好', 86.8, 'A', '继续提升培训能力，开发更多优质培训课程', '2024-01-22 10:30:00', 3),
-(19, 2024, 2, 1, 91.5, '完成了财务预算管理，控制了成本支出，优化了财务流程', 92.0, '财务管理能力强，成本控制效果好，工作认真负责', 91.8, 'A', '继续提升财务管理水平，加强财务风险管控', '2024-01-18 16:00:00', 3),
-(20, 2024, 2, 1, 88.0, '完成了会计核算工作，保证了账务处理的准确性', 89.0, '会计专业能力强，工作认真细致', 88.5, 'A', '继续提升会计专业技能，学习税务知识', '2024-01-21 09:00:00', 3),
-(24, 2024, 2, 1, 92.5, '完成了销售目标，拓展了新客户，提升了品牌知名度', 93.0, '销售能力强，市场开拓能力突出', 92.8, 'A', '继续保持良好的销售业绩，加强客户关系维护', '2024-01-19 15:30:00', 3),
-(25, 2024, 2, 1, 90.0, '完成了销售任务，管理了销售团队，提升了团队业绩', 91.0, '销售管理能力强，团队管理能力突出', 90.5, 'A', '继续提升销售管理能力，加强团队建设', '2024-01-20 11:00:00', 3);
-
--- ============================================================================
--- 8. 薪资调整表 (salary_adjustment)
--- ============================================================================
-INSERT INTO `salary_adjustment` (`emp_id`, `adjustment_type`, `before_salary`, `after_salary`, `adjustment_rate`, `effective_date`, `reason`, `approver_id`, `approval_status`, `approval_comment`, `approval_date`, `creator_id`) VALUES
-(1, 1, 20000.00, 22000.00, 10.00, '2024-01-01 00:00:00', '晋升为高级软件工程师，工作表现优秀', 10, 1, '同意晋升', '2023-12-25 10:00:00', 14),
-(2, 4, 15000.00, 16000.00, 6.67, '2024-01-01 00:00:00', '试用期转正，工作表现良好', 1, 1, '同意转正', '2023-12-28 14:30:00', 14),
-(3, 3, 17000.00, 18000.00, 5.88, '2024-01-01 00:00:00', '年度调薪，工作表现优秀', 10, 1, '同意调薪', '2023-12-26 11:00:00', 14),
-(4, 1, 25000.00, 28000.00, 12.00, '2024-01-01 00:00:00', '晋升为架构师，技术能力突出', 10, 1, '同意晋升', '2023-12-24 15:00:00', 14),
-(5, 4, 13000.00, 14000.00, 7.69, '2024-01-01 00:00:00', '试用期转正，工作表现良好', 1, 1, '同意转正', '2023-12-29 09:30:00', 14),
-(6, 3, 18000.00, 19000.00, 5.56, '2024-01-01 00:00:00', '年度调薪，产品管理能力突出', 10, 1, '同意调薪', '2023-12-27 13:00:00', 14),
-(7, 4, 12000.00, 13000.00, 8.33, '2024-01-01 00:00:00', '试用期转正，设计能力优秀', 1, 1, '同意转正', '2023-12-30 10:30:00', 14),
-(8, 3, 14000.00, 15000.00, 7.14, '2024-01-01 00:00:00', '年度调薪，运维工作表现优秀', 10, 1, '同意调薪', '2023-12-25 16:00:00', 14),
-(9, 1, 16000.00, 17000.00, 6.25, '2024-01-01 00:00:00', '晋升为数据分析师，分析能力突出', 10, 1, '同意晋升', '2023-12-26 14:30:00', 14),
-(10, 3, 30000.00, 32000.00, 6.67, '2024-01-01 00:00:00', '年度调薪，技术领导能力突出', 14, 1, '同意调薪', '2023-12-28 11:30:00', 14),
-(11, 4, 10000.00, 12000.00, 20.00, '2024-01-01 00:00:00', '试用期转正，学习能力优秀', 1, 1, '同意转正', '2023-12-29 15:00:00', 14),
-(12, 4, 11000.00, 11500.00, 4.55, '2024-01-01 00:00:00', '试用期转正，工作表现良好', 1, 1, '同意转正', '2023-12-30 09:00:00', 14),
-(14, 3, 17000.00, 18000.00, 5.88, '2024-01-01 00:00:00', '年度调薪，人力资源管理工作优秀', 10, 1, '同意调薪', '2023-12-27 10:00:00', 14),
-(15, 4, 10000.00, 11000.00, 10.00, '2024-01-01 00:00:00', '试用期转正，招聘能力优秀', 1, 1, '同意转正', '2023-12-28 14:00:00', 14),
-(19, 3, 19000.00, 20000.00, 5.26, '2024-01-01 00:00:00', '年度调薪，财务管理能力突出', 10, 1, '同意调薪', '2023-12-26 15:30:00', 14),
-(24, 3, 20000.00, 22000.00, 10.00, '2024-01-01 00:00:00', '年度调薪，市场开拓能力突出', 10, 1, '同意调薪', '2023-12-29 11:00:00', 14),
-(25, 3, 18000.00, 19000.00, 5.56, '2024-01-01 00:00:00', '年度调薪，销售管理能力突出', 10, 1, '同意调薪', '2023-12-30 13:30:00', 14),
-(31, 1, 23000.00, 25000.00, 8.70, '2024-01-01 00:00:00', '晋升为运营总监，运营管理能力突出', 10, 1, '同意晋升', '2023-12-25 10:30:00', 14),
-(36, 3, 15000.00, 16000.00, 6.67, '2024-01-01 00:00:00', '年度调薪，客服管理工作优秀', 10, 1, '同意调薪', '2023-12-27 14:30:00', 14),
-(41, 3, 16000.00, 17000.00, 6.25, '2024-01-01 00:00:00', '年度调薪，行政管理工作优秀', 10, 1, '同意调薪', '2023-12-28 10:00:00', 14),
-(46, 3, 25000.00, 27000.00, 8.00, '2024-01-01 00:00:00', '年度调薪，研发工作成果突出', 10, 1, '同意调薪', '2023-12-29 15:30:00', 14);
-
--- ============================================================================
--- 9. 薪资发放表 (salary_payment) - 2024年1月薪资数据
--- ============================================================================
-INSERT INTO `salary_payment` (`emp_id`, `year`, `month`, `basic_salary`, `performance_salary`, `position_allowance`, `transport_allowance`, `communication_allowance`, `meal_allowance`, `other_allowance`, `overtime_pay`, `total_gross_salary`, `social_insurance`, `housing_fund`, `income_tax`, `other_deduction`, `total_net_salary`, `payment_status`, `payment_date`, `remark`) VALUES
-(1, 2024, 1, 22000.00, 4400.00, 2000.00, 800.00, 300.00, 500.00, 0.00, 1500.00, 31500.00, 2640.00, 2640.00, 890.00, 0.00, 25330.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(2, 2024, 1, 16000.00, 3200.00, 1500.00, 600.00, 200.00, 400.00, 0.00, 800.00, 22700.00, 1920.00, 1920.00, 520.00, 0.00, 18340.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(3, 2024, 1, 18000.00, 3600.00, 1800.00, 700.00, 250.00, 450.00, 0.00, 1000.00, 25800.00, 2160.00, 2160.00, 680.00, 0.00, 20800.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(4, 2024, 1, 28000.00, 5600.00, 2500.00, 1000.00, 400.00, 600.00, 0.00, 2000.00, 40100.00, 3360.00, 3360.00, 1350.00, 0.00, 32030.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(5, 2024, 1, 14000.00, 2800.00, 1200.00, 500.00, 200.00, 350.00, 0.00, 600.00, 19650.00, 1680.00, 1680.00, 380.00, 0.00, 15910.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(6, 2024, 1, 19000.00, 3800.00, 2000.00, 800.00, 300.00, 500.00, 0.00, 1200.00, 27600.00, 2280.00, 2280.00, 720.00, 0.00, 22320.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(7, 2024, 1, 13000.00, 2600.00, 1000.00, 400.00, 150.00, 300.00, 0.00, 500.00, 17950.00, 1560.00, 1560.00, 320.00, 0.00, 14510.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(8, 2024, 1, 15000.00, 3000.00, 1500.00, 600.00, 200.00, 400.00, 0.00, 800.00, 21500.00, 1800.00, 1800.00, 480.00, 0.00, 17420.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(9, 2024, 1, 17000.00, 3400.00, 1800.00, 700.00, 250.00, 450.00, 0.00, 1000.00, 24600.00, 2040.00, 2040.00, 620.00, 0.00, 19900.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(10, 2024, 1, 32000.00, 6400.00, 3000.00, 1200.00, 500.00, 700.00, 0.00, 2500.00, 46300.00, 3840.00, 3840.00, 1620.00, 0.00, 37000.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(11, 2024, 1, 12000.00, 2400.00, 1000.00, 400.00, 150.00, 300.00, 0.00, 500.00, 16750.00, 1440.00, 1440.00, 280.00, 0.00, 13590.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(12, 2024, 1, 11500.00, 2300.00, 1000.00, 400.00, 150.00, 300.00, 0.00, 500.00, 16150.00, 1380.00, 1380.00, 260.00, 0.00, 13130.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(13, 2024, 1, 15500.00, 3100.00, 1500.00, 600.00, 200.00, 400.00, 0.00, 800.00, 22100.00, 1860.00, 1860.00, 540.00, 0.00, 17840.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(14, 2024, 1, 18000.00, 3600.00, 2000.00, 800.00, 300.00, 500.00, 0.00, 1000.00, 26200.00, 2160.00, 2160.00, 680.00, 0.00, 21200.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(15, 2024, 1, 11000.00, 2200.00, 1000.00, 400.00, 150.00, 300.00, 0.00, 500.00, 15550.00, 1320.00, 1320.00, 240.00, 0.00, 12670.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(16, 2024, 1, 12000.00, 2400.00, 1200.00, 500.00, 200.00, 350.00, 0.00, 600.00, 17250.00, 1440.00, 1440.00, 340.00, 0.00, 14030.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(17, 2024, 1, 10500.00, 2100.00, 1000.00, 400.00, 150.00, 300.00, 0.00, 500.00, 14950.00, 1260.00, 1260.00, 220.00, 0.00, 12210.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(18, 2024, 1, 9000.00, 1800.00, 800.00, 300.00, 100.00, 250.00, 0.00, 400.00, 12650.00, 1080.00, 1080.00, 150.00, 0.00, 10340.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(19, 2024, 1, 20000.00, 4000.00, 2500.00, 1000.00, 400.00, 600.00, 0.00, 1500.00, 30000.00, 2400.00, 2400.00, 850.00, 0.00, 24350.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(20, 2024, 1, 13000.00, 2600.00, 1500.00, 600.00, 200.00, 400.00, 0.00, 800.00, 19100.00, 1560.00, 1560.00, 380.00, 0.00, 15600.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(21, 2024, 1, 10000.00, 2000.00, 1000.00, 400.00, 150.00, 300.00, 0.00, 500.00, 14350.00, 1200.00, 1200.00, 220.00, 0.00, 11730.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(22, 2024, 1, 14000.00, 2800.00, 1500.00, 600.00, 200.00, 400.00, 0.00, 800.00, 20300.00, 1680.00, 1680.00, 480.00, 0.00, 16460.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(23, 2024, 1, 12000.00, 2400.00, 1200.00, 500.00, 200.00, 350.00, 0.00, 600.00, 17250.00, 1440.00, 1440.00, 340.00, 0.00, 14030.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(24, 2024, 1, 22000.00, 4400.00, 2500.00, 1000.00, 400.00, 600.00, 0.00, 2000.00, 32900.00, 2640.00, 2640.00, 920.00, 0.00, 26700.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(25, 2024, 1, 19000.00, 3800.00, 2000.00, 800.00, 300.00, 500.00, 0.00, 1500.00, 27900.00, 2280.00, 2280.00, 720.00, 0.00, 22620.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(26, 2024, 1, 11000.00, 2200.00, 1000.00, 400.00, 150.00, 300.00, 0.00, 500.00, 15550.00, 1320.00, 1320.00, 240.00, 0.00, 12670.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(27, 2024, 1, 10500.00, 2100.00, 1000.00, 400.00, 150.00, 300.00, 0.00, 500.00, 14950.00, 1260.00, 1260.00, 220.00, 0.00, 12210.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(28, 2024, 1, 10800.00, 2160.00, 1000.00, 400.00, 150.00, 300.00, 0.00, 500.00, 15310.00, 1296.00, 1296.00, 240.00, 0.00, 12478.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(29, 2024, 1, 9500.00, 1900.00, 800.00, 300.00, 100.00, 250.00, 0.00, 400.00, 13250.00, 1140.00, 1140.00, 160.00, 0.00, 10810.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(30, 2024, 1, 11500.00, 2300.00, 1200.00, 500.00, 200.00, 350.00, 0.00, 600.00, 16650.00, 1380.00, 1380.00, 320.00, 0.00, 13570.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(31, 2024, 1, 25000.00, 5000.00, 3000.00, 1200.00, 500.00, 700.00, 0.00, 2000.00, 37400.00, 3000.00, 3000.00, 1200.00, 0.00, 30200.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(32, 2024, 1, 14000.00, 2800.00, 1500.00, 600.00, 200.00, 400.00, 0.00, 800.00, 20300.00, 1680.00, 1680.00, 480.00, 0.00, 16460.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(33, 2024, 1, 13000.00, 2600.00, 1500.00, 600.00, 200.00, 400.00, 0.00, 800.00, 19100.00, 1560.00, 1560.00, 380.00, 0.00, 15600.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(34, 2024, 1, 12500.00, 2500.00, 1400.00, 550.00, 200.00, 400.00, 0.00, 750.00, 18300.00, 1500.00, 1500.00, 350.00, 0.00, 14950.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(35, 2024, 1, 12000.00, 2400.00, 1300.00, 500.00, 200.00, 350.00, 0.00, 700.00, 17450.00, 1440.00, 1440.00, 320.00, 0.00, 14250.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(36, 2024, 1, 16000.00, 3200.00, 1800.00, 700.00, 250.00, 450.00, 0.00, 1000.00, 23400.00, 1920.00, 1920.00, 560.00, 0.00, 19000.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(37, 2024, 1, 13000.00, 2600.00, 1500.00, 600.00, 200.00, 400.00, 0.00, 800.00, 19100.00, 1560.00, 1560.00, 380.00, 0.00, 15600.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(38, 2024, 1, 9000.00, 1800.00, 800.00, 300.00, 100.00, 250.00, 0.00, 400.00, 12650.00, 1080.00, 1080.00, 150.00, 0.00, 10340.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(39, 2024, 1, 8800.00, 1760.00, 800.00, 300.00, 100.00, 250.00, 0.00, 400.00, 12410.00, 1056.00, 1056.00, 140.00, 0.00, 10158.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(40, 2024, 1, 9200.00, 1840.00, 900.00, 350.00, 150.00, 300.00, 0.00, 450.00, 13190.00, 1104.00, 1104.00, 170.00, 0.00, 10812.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(41, 2024, 1, 17000.00, 3400.00, 2000.00, 800.00, 300.00, 500.00, 0.00, 1000.00, 25000.00, 2040.00, 2040.00, 620.00, 0.00, 20300.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(42, 2024, 1, 10000.00, 2000.00, 1000.00, 400.00, 150.00, 300.00, 0.00, 500.00, 14350.00, 1200.00, 1200.00, 220.00, 0.00, 11730.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(43, 2024, 1, 9500.00, 1900.00, 900.00, 350.00, 150.00, 250.00, 0.00, 450.00, 13500.00, 1140.00, 1140.00, 160.00, 0.00, 11060.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(44, 2024, 1, 8500.00, 1700.00, 800.00, 300.00, 100.00, 250.00, 0.00, 400.00, 12050.00, 1020.00, 1020.00, 120.00, 0.00, 9890.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(45, 2024, 1, 8000.00, 1600.00, 700.00, 250.00, 100.00, 200.00, 0.00, 350.00, 11200.00, 960.00, 960.00, 90.00, 0.00, 9190.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(46, 2024, 1, 27000.00, 5400.00, 3000.00, 1200.00, 500.00, 700.00, 0.00, 2000.00, 39800.00, 3240.00, 3240.00, 1120.00, 0.00, 32200.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(47, 2024, 1, 21000.00, 4200.00, 2500.00, 1000.00, 400.00, 600.00, 0.00, 1500.00, 31200.00, 2520.00, 2520.00, 840.00, 0.00, 25320.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(48, 2024, 1, 20000.00, 4000.00, 2500.00, 1000.00, 400.00, 600.00, 0.00, 1500.00, 30000.00, 2400.00, 2400.00, 800.00, 0.00, 24400.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(49, 2024, 1, 18500.00, 3700.00, 2200.00, 900.00, 350.00, 550.00, 0.00, 1300.00, 27500.00, 2220.00, 2220.00, 720.00, 0.00, 22340.00, 1, '2024-01-10 10:00:00', '2024年1月薪资'),
-(50, 2024, 1, 16500.00, 3300.00, 2000.00, 800.00, 300.00, 500.00, 0.00, 1200.00, 24600.00, 1980.00, 1980.00, 620.00, 0.00, 20020.00, 1, '2024-01-10 10:00:00', '2024年1月薪资');
-
--- 恢复外键检查
 SET FOREIGN_KEY_CHECKS = 1;
 
--- ============================================================================
--- 数据插入完成提示
--- ============================================================================
-SELECT 'MySQL数据插入完成!' AS '状态',
-       '已插入50名员工数据' AS '员工数据',
-       '已插入考勤、请假、绩效、薪资等业务数据' AS '业务数据',
-       '所有密码使用BCrypt加密(123456)' AS '安全说明';
+SELECT
+    'MySQL批量补数完成' AS status,
+    (SELECT COUNT(*) FROM employee WHERE deleted = 0) AS employee_count,
+    (SELECT COUNT(*) FROM attendance WHERE deleted = 0) AS attendance_count,
+    (SELECT COUNT(*) FROM salary_payment WHERE deleted = 0) AS salary_payment_count,
+    (SELECT COUNT(*) FROM performance_evaluation WHERE deleted = 0) AS performance_eval_count;

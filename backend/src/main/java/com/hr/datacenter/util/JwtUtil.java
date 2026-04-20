@@ -4,11 +4,13 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -20,6 +22,7 @@ import java.util.Map;
  * @since 2024-01-20
  */
 @Component
+@Slf4j
 public class JwtUtil {
 
     @Value("${jwt.secret}")
@@ -38,6 +41,14 @@ public class JwtUtil {
         return generateToken(claims);
     }
 
+    public String generateToken(Long userId, String username, String roleCode) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("userId", userId);
+        claims.put("username", username);
+        claims.put("roleCode", roleCode);
+        return generateToken(claims);
+    }
+
     /**
      * 生成Token
      */
@@ -45,7 +56,7 @@ public class JwtUtil {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expiration);
 
-        SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        SecretKey key = getSigningKey();
 
         return Jwts.builder()
                 .setClaims(claims)
@@ -60,7 +71,7 @@ public class JwtUtil {
      */
     public Claims getClaimsFromToken(String token) {
         try {
-            SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+            SecretKey key = getSigningKey();
             return Jwts.parserBuilder()
                     .setSigningKey(key)
                     .build()
@@ -93,6 +104,14 @@ public class JwtUtil {
         return null;
     }
 
+    public String getRoleCodeFromToken(String token) {
+        Claims claims = getClaimsFromToken(token);
+        if (claims != null) {
+            return claims.get("roleCode", String.class);
+        }
+        return null;
+    }
+
     /**
      * 验证Token是否过期
      */
@@ -114,5 +133,24 @@ public class JwtUtil {
      */
     public Boolean validateToken(String token) {
         return !isTokenExpired(token);
+    }
+
+    /**
+     * 统一构建签名密钥，避免配置密钥长度不足导致认证全链路失败。
+     * HS512 要求最少 64 字节，因此对短密钥做 SHA-512 扩展。
+     */
+    private SecretKey getSigningKey() {
+        byte[] raw = secret == null ? new byte[0] : secret.getBytes(StandardCharsets.UTF_8);
+        if (raw.length >= 64) {
+            return Keys.hmacShaKeyFor(raw);
+        }
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-512");
+            byte[] expanded = digest.digest(raw);
+            log.warn("JWT密钥长度不足64字节，已启用SHA-512扩展签名密钥，建议尽快修正 jwt.secret 配置。");
+            return Keys.hmacShaKeyFor(expanded);
+        } catch (Exception ex) {
+            throw new IllegalStateException("JWT密钥初始化失败", ex);
+        }
     }
 }
