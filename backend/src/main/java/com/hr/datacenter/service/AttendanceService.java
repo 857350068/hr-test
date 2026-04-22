@@ -5,11 +5,8 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hr.datacenter.entity.Attendance;
-import com.hr.datacenter.entity.Employee;
 import com.hr.datacenter.mapper.mysql.AttendanceMapper;
-import com.hr.datacenter.mapper.mysql.EmployeeMapper;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -26,9 +23,6 @@ import java.time.temporal.ChronoUnit;
 @Slf4j
 @Service
 public class AttendanceService extends ServiceImpl<AttendanceMapper, Attendance> {
-
-    @Autowired
-    private EmployeeMapper employeeMapper;
 
     /**
      * 上班打卡
@@ -59,12 +53,16 @@ public class AttendanceService extends ServiceImpl<AttendanceMapper, Attendance>
             attendance.setClockInTime(now);
             attendance.setAttendanceType(attendanceType);
             attendance.setAttendanceStatus(1);
+            attendance.setCreateTime(LocalDateTime.now());
+            attendance.setUpdateTime(LocalDateTime.now());
+            attendance.setDeleted(0);
             return this.save(attendance);
         } else {
             // 更新记录
             attendance.setClockInTime(now);
             attendance.setAttendanceType(attendanceType);
             attendance.setAttendanceStatus(1);
+            attendance.setUpdateTime(LocalDateTime.now());
             return this.updateById(attendance);
         }
     }
@@ -102,6 +100,7 @@ public class AttendanceService extends ServiceImpl<AttendanceMapper, Attendance>
         
         attendance.setClockOutTime(now);
         attendance.setAttendanceType(attendanceType);
+        attendance.setUpdateTime(LocalDateTime.now());
         return this.updateById(attendance);
     }
 

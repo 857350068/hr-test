@@ -36,6 +36,7 @@ fi
 
 echo "[1/8] 创建目录: ${APP_DIR}"
 mkdir -p "${APP_DIR}"/{backend,logs,frontend-dist}
+mkdir -p "${APP_DIR}/logs/report-exports"
 
 echo "[2/8] 停止旧后端进程"
 pkill -f "hr-data-center\\.jar|HrDataCenter.*jar" >/dev/null 2>&1 || true
@@ -60,20 +61,21 @@ fi
 echo "[5/8] 初始化数据库 (可选)"
 if [[ "${INIT_DATABASE}" == "true" ]]; then
   echo "执行 MySQL 初始化脚本"
+  MYSQL_CMD=(mysql --force -h"${MYSQL_HOST}" -P"${MYSQL_PORT}" -u"${MYSQL_USER}" -p"${MYSQL_PASSWORD}")
   if ! command -v mysql >/dev/null 2>&1; then
     echo "未检测到 mysql 客户端，跳过数据库初始化。"
   elif [[ -d "${APP_DIR}/upload/database" ]]; then
-    mysql -u"${MYSQL_USER}" -p"${MYSQL_PASSWORD}" -e \
+    "${MYSQL_CMD[@]}" -e \
       "CREATE DATABASE IF NOT EXISTS ${MYSQL_DB} DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-    mysql -u"${MYSQL_USER}" -p"${MYSQL_PASSWORD}" "${MYSQL_DB}" < "${APP_DIR}/upload/database/hr_datacenter_mysql_init.sql"
+    "${MYSQL_CMD[@]}" "${MYSQL_DB}" < "${APP_DIR}/upload/database/hr_datacenter_mysql_init.sql"
     if [[ -f "${APP_DIR}/upload/database/1mysql/insert_data.sql" ]]; then
-      mysql -u"${MYSQL_USER}" -p"${MYSQL_PASSWORD}" "${MYSQL_DB}" < "${APP_DIR}/upload/database/1mysql/insert_data.sql"
+      "${MYSQL_CMD[@]}" "${MYSQL_DB}" < "${APP_DIR}/upload/database/1mysql/insert_data.sql"
     fi
     if [[ -f "${APP_DIR}/upload/database/mysql_patch_20260416.sql" ]]; then
-      mysql -u"${MYSQL_USER}" -p"${MYSQL_PASSWORD}" "${MYSQL_DB}" < "${APP_DIR}/upload/database/mysql_patch_20260416.sql"
+      "${MYSQL_CMD[@]}" "${MYSQL_DB}" < "${APP_DIR}/upload/database/mysql_patch_20260416.sql"
     fi
     if [[ -f "${APP_DIR}/upload/database/update_user_passwords.sql" ]]; then
-      mysql -u"${MYSQL_USER}" -p"${MYSQL_PASSWORD}" "${MYSQL_DB}" < "${APP_DIR}/upload/database/update_user_passwords.sql"
+      "${MYSQL_CMD[@]}" "${MYSQL_DB}" < "${APP_DIR}/upload/database/update_user_passwords.sql"
     fi
   else
     echo "未找到 ${APP_DIR}/upload/database，跳过数据库初始化。"

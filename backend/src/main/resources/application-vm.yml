@@ -77,3 +77,12 @@ data-sync:
   dimension-sync-cron: "0 0 2 * * ?"
   fact-sync-cron: "0 0 * * * ?"
   aggregation-sync-cron: "0 0 3 * * ?"
+
+project:
+  runtime:
+    mode-name: VM兼容演示模式
+    mode-desc: 兼容数据源链路（可在无Hive集群条件下联调演示）
+
+report:
+  export:
+    dir: /opt/hrdatacenter/logs/report-exports

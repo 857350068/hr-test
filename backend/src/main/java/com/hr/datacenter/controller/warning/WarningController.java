@@ -59,9 +59,13 @@ public class WarningController {
      * 获取流失预警概览
      */
     @GetMapping("/turnover/overview")
-    public Result<Map<String, Object>> getTurnoverWarningOverview() {
+    public Result<Map<String, Object>> getTurnoverWarningOverview(
+            @RequestParam(required = false) String department,
+            @RequestParam(required = false) String position,
+            @RequestParam(required = false) String period,
+            @RequestParam(required = false) String empNo) {
         log.info("获取流失预警概览");
-        Map<String, Object> data = turnoverWarningService.getTurnoverWarningOverview();
+        Map<String, Object> data = turnoverWarningService.getTurnoverWarningOverview(department, position, empNo, period);
         return Result.success(data);
     }
 
@@ -91,9 +95,13 @@ public class WarningController {
      * 获取人才缺口预警概览
      */
     @GetMapping("/talent-gap/overview")
-    public Result<Map<String, Object>> getTalentGapWarningOverview() {
+    public Result<Map<String, Object>> getTalentGapWarningOverview(
+            @RequestParam(required = false) String department,
+            @RequestParam(required = false) String position,
+            @RequestParam(required = false) String period,
+            @RequestParam(required = false) String empNo) {
         log.info("获取人才缺口预警概览");
-        Map<String, Object> data = talentGapWarningService.getTalentGapWarningOverview();
+        Map<String, Object> data = talentGapWarningService.getTalentGapWarningOverview(department, position, empNo, period);
         return Result.success(data);
     }
 

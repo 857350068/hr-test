@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.hr.datacenter.common.Result;
 import com.hr.datacenter.entity.SalaryPayment;
 import com.hr.datacenter.service.SalaryPaymentService;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -104,7 +103,7 @@ public class SalaryPaymentController {
      */
     @GetMapping("/statistics")
     public Result<Map<String, Object>> getSalaryStatistics(
-            @RequestParam Long empId,
+            @RequestParam(required = false) Long empId,
             @RequestParam(required = false) Integer year) {
         try {
             Map<String, Object> result = salaryPaymentService.getSalaryStatistics(empId, year);

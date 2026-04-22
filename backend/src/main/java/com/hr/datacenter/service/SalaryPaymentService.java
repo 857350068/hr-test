@@ -125,7 +125,9 @@ public class SalaryPaymentService extends ServiceImpl<SalaryPaymentMapper, Salar
      */
     public java.util.Map<String, Object> getSalaryStatistics(Long empId, Integer year) {
         LambdaQueryWrapper<SalaryPayment> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(SalaryPayment::getEmpId, empId);
+        if (empId != null) {
+            wrapper.eq(SalaryPayment::getEmpId, empId);
+        }
         if (year != null) {
             wrapper.eq(SalaryPayment::getYear, year);
         }

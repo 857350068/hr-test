@@ -59,10 +59,29 @@ export async function downloadReportFile(reportType) {
   return response.data
 }
 
+export async function downloadGeneratedReportFile(fileName, disposition = 'attachment') {
+  const token = localStorage.getItem('token')
+  const response = await axios({
+    url: `/api/system/report/file/${encodeURIComponent(fileName)}`,
+    method: 'get',
+    params: { disposition },
+    responseType: 'blob',
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  })
+  return response.data
+}
+
 export function getReportExecutionLogs() {
   return request({
     url: '/system/report/execution-log/list',
     method: 'get'
+  })
+}
+
+export function rebuildExecutionLogFile(logId) {
+  return request({
+    url: `/system/report/execution-log/rebuild/${logId}`,
+    method: 'post'
   })
 }
 

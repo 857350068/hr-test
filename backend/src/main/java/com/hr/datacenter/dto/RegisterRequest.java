@@ -47,8 +47,4 @@ public class RegisterRequest {
     @Pattern(regexp = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$", message = "邮箱格式不正确")
     private String email;
 
-    /**
-     * 角色编码
-     */
-    private String roleCode;
 }

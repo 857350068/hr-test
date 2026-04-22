@@ -1,8 +1,11 @@
 package com.hr.datacenter.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.hr.datacenter.common.Result;
 import com.hr.datacenter.entity.Message;
+import com.hr.datacenter.entity.User;
 import com.hr.datacenter.service.MessageService;
+import com.hr.datacenter.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -27,6 +30,8 @@ public class MessageController {
 
     @Autowired
     private MessageService messageService;
+    @Autowired
+    private UserService userService;
 
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
@@ -37,8 +42,36 @@ public class MessageController {
     @PostMapping("/broadcast")
     public Result<String> broadcast(@RequestBody Message message) {
         try {
-            messageService.saveMessage(message);
-            // 广播消息给所有用户
+            if (message.getSenderId() == null) {
+                message.setSenderId(1L);
+            }
+            if (message.getMessageType() == null) {
+                message.setMessageType(1);
+            }
+            if (message.getIsRead() == null) {
+                message.setIsRead(0);
+            }
+
+            if (message.getReceiverId() != null) {
+                messageService.saveMessage(message);
+            } else {
+                // sys_message.receiver_id 非空，广播时按用户逐条落库。
+                java.util.List<User> users = userService.list(new LambdaQueryWrapper<User>()
+                        .eq(User::getDeleted, 0)
+                        .eq(User::getStatus, 1)
+                        .select(User::getUserId));
+                for (User user : users) {
+                    Message item = new Message();
+                    item.setSenderId(message.getSenderId());
+                    item.setReceiverId(user.getUserId());
+                    item.setTitle(message.getTitle());
+                    item.setContent(message.getContent());
+                    item.setMessageType(message.getMessageType());
+                    item.setIsRead(0);
+                    messageService.saveMessage(item);
+                }
+            }
+            // 广播消息给所有在线用户
             messagingTemplate.convertAndSend("/topic/broadcast", message);
             log.info("发送系统公告: {}", message.getTitle());
             return Result.success("发送成功");

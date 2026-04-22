@@ -25,10 +25,11 @@ export function getDepartmentTurnoverRate() {
 /**
  * 获取流失预警概览
  */
-export function getTurnoverWarningOverview() {
+export function getTurnoverWarningOverview(params = {}) {
   return request({
     url: '/warning/turnover/overview',
-    method: 'get'
+    method: 'get',
+    params
   })
 }
 
@@ -57,10 +58,11 @@ export function getDepartmentStructureAnalysis() {
 /**
  * 获取人才缺口预警概览
  */
-export function getTalentGapWarningOverview() {
+export function getTalentGapWarningOverview(params = {}) {
   return request({
     url: '/warning/talent-gap/overview',
-    method: 'get'
+    method: 'get',
+    params
   })
 }
 

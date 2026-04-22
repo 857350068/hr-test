@@ -36,37 +36,43 @@ public class TalentGapWarningService {
      * @return 人才缺口数据
      */
     public List<Map<String, Object>> getTalentGapAnalysis() {
+        return getTalentGapAnalysis(null, null, null);
+    }
+
+    public List<Map<String, Object>> getTalentGapAnalysis(String department, String position, String empNo) {
         log.info("开始分析人才缺口");
         
         JdbcTemplate hiveJdbc = new JdbcTemplate(hiveDataSource);
         String latestDt = getLatestDt(hiveJdbc);
         
         List<Map<String, Object>> result = new ArrayList<>();
+        List<Object> params = new ArrayList<>();
+        String whereClause = buildEmployeeFilterClause(latestDt, department, position, empNo, params);
         
         // 按部门和岗位统计人数
         String sql = "SELECT department, position, COUNT(*) as current_count " +
-                "FROM dim_employee " + buildLatestDtWhereClause(latestDt) + "AND status = 1 " +
+                "FROM dim_employee " + whereClause + "AND status = 1 " +
                 "GROUP BY department, position";
-        List<Map<String, Object>> positionStats = queryForListWithLatestDt(hiveJdbc, sql, latestDt);
+        List<Map<String, Object>> positionStats = hiveJdbc.queryForList(sql, params.toArray());
         
         for (Map<String, Object> stat : positionStats) {
-            String department = (String) stat.get("department");
-            String position = (String) stat.get("position");
+            String deptName = (String) stat.get("department");
+            String posName = (String) stat.get("position");
             long currentCount = asLong(stat.get("current_count"));
             
             // 计算期望人数（基于业务规则）
-            int expectedCount = calculateExpectedCount(department, position);
+            int expectedCount = calculateExpectedCount(deptName, posName);
             
             if (currentCount < expectedCount) {
                 Map<String, Object> gap = new HashMap<>();
-                gap.put("department", department);
-                gap.put("position", position);
+                gap.put("department", deptName);
+                gap.put("position", posName);
                 gap.put("currentCount", currentCount);
                 gap.put("expectedCount", expectedCount);
                 gap.put("gapCount", expectedCount - currentCount);
                 gap.put("gapRate", (expectedCount - currentCount) * 100.0 / expectedCount);
                 gap.put("urgency", getUrgencyLevel(expectedCount - currentCount, expectedCount));
-                gap.put("suggestion", getRecruitmentSuggestion(position, expectedCount - currentCount));
+                gap.put("suggestion", getRecruitmentSuggestion(posName, expectedCount - currentCount));
                 result.add(gap);
             }
         }
@@ -122,15 +128,21 @@ public class TalentGapWarningService {
      * @return 预警概览数据
      */
     public Map<String, Object> getTalentGapWarningOverview() {
+        return getTalentGapWarningOverview(null, null, null, null);
+    }
+
+    public Map<String, Object> getTalentGapWarningOverview(String department, String position, String empNo, String period) {
         log.info("开始生成人才缺口预警概览");
         
         JdbcTemplate hiveJdbc = new JdbcTemplate(hiveDataSource);
         String latestDt = getLatestDt(hiveJdbc);
         
         Map<String, Object> result = new HashMap<>();
+        List<Object> baseParams = new ArrayList<>();
+        String whereClause = buildEmployeeFilterClause(latestDt, department, position, empNo, baseParams);
         
         // 整体人才缺口统计
-        List<Map<String, Object>> gaps = getTalentGapAnalysis();
+        List<Map<String, Object>> gaps = getTalentGapAnalysis(department, position, empNo);
         long totalGapCount = gaps.stream()
                 .mapToLong(g -> asLong(g.get("gapCount")))
                 .sum();
@@ -156,8 +168,8 @@ public class TalentGapWarningService {
         // 人才储备率
         String reserveSql = "SELECT " +
                 "COUNT(CASE WHEN education IN ('本科', '硕士', '博士') THEN 1 END) * 100.0 / COUNT(*) as reserve_rate " +
-                "FROM dim_employee " + buildLatestDtWhereClause(latestDt) + "AND status = 1";
-        Double reserveRate = queryForObjectWithLatestDt(hiveJdbc, reserveSql, latestDt);
+                "FROM dim_employee " + whereClause + "AND status = 1";
+        Double reserveRate = queryForObjectWithParams(hiveJdbc, reserveSql, baseParams);
         result.put("talentReserveRate", reserveRate);
         
         log.info("人才缺口预警概览生成完成");
@@ -256,9 +268,32 @@ public class TalentGapWarningService {
         return StringUtils.hasText(latestDt) ? hiveJdbc.queryForList(sql, latestDt) : hiveJdbc.queryForList(sql);
     }
 
-    private Double queryForObjectWithLatestDt(JdbcTemplate hiveJdbc, String sql, String latestDt) {
-        return StringUtils.hasText(latestDt)
-                ? hiveJdbc.queryForObject(sql, Double.class, latestDt)
-                : hiveJdbc.queryForObject(sql, Double.class);
+    private String buildEmployeeFilterClause(String latestDt,
+                                             String department,
+                                             String position,
+                                             String empNo,
+                                             List<Object> params) {
+        StringBuilder whereClause = new StringBuilder("WHERE 1=1 ");
+        if (StringUtils.hasText(latestDt)) {
+            whereClause.append("AND dt = ? ");
+            params.add(latestDt);
+        }
+        if (StringUtils.hasText(department)) {
+            whereClause.append("AND department = ? ");
+            params.add(department);
+        }
+        if (StringUtils.hasText(position)) {
+            whereClause.append("AND position = ? ");
+            params.add(position);
+        }
+        if (StringUtils.hasText(empNo)) {
+            whereClause.append("AND emp_no LIKE ? ");
+            params.add("%" + empNo + "%");
+        }
+        return whereClause.toString();
+    }
+
+    private Double queryForObjectWithParams(JdbcTemplate hiveJdbc, String sql, List<Object> params) {
+        return hiveJdbc.queryForObject(sql, Double.class, params.toArray());
     }
 }

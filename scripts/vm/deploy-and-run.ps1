@@ -4,9 +4,13 @@ param(
     [string]$RemoteDir = "/opt/hrdatacenter/upload",
     [string]$SshKeyPath = "",
     [string]$RootPassword = "",
+    [string]$MysqlHost = "127.0.0.1",
+    [string]$MysqlPort = "3306",
+    [string]$MysqlUser = "root",
+    [string]$MysqlDb = "hr_datacenter",
     [string]$MysqlPassword = "123456",
     [string]$JwtSecret = "hrDataCenterSecretKey2024ForJwtTokenGenerationAndAuthenticationWithSecure512BitKeyLength!!",
-    [bool]$InitDatabase = $true
+    [string]$InitDatabase = "true"
 )
 
 $ErrorActionPreference = "Stop"
@@ -45,6 +49,10 @@ $backendDir = Join-Path $root "backend"
 $frontendDir = Join-Path $root "frontend"
 $databaseDir = Join-Path $root "database"
 $askpassScript = Join-Path $PSScriptRoot "askpass.cmd"
+$initDatabaseNormalized = $InitDatabase.ToString().Trim().ToLower()
+if ($initDatabaseNormalized -notin @("true", "false")) {
+    throw "InitDatabase must be true or false."
+}
 
 Write-Host "[1/8] Build backend jar..."
 Push-Location $backendDir
@@ -92,8 +100,12 @@ Write-Host "[6/8] Execute remote run script..."
 $remoteCmd = @"
 chmod +x $RemoteDir/run-on-vm.sh &&
 export MYSQL_PASSWORD='$MysqlPassword' &&
+export MYSQL_HOST='$MysqlHost' &&
+export MYSQL_PORT='$MysqlPort' &&
+export MYSQL_USER='$MysqlUser' &&
+export MYSQL_DB='$MysqlDb' &&
 export JWT_SECRET='$JwtSecret' &&
-export INIT_DATABASE='$($InitDatabase.ToString().ToLower())' &&
+export INIT_DATABASE='$initDatabaseNormalized' &&
 export DATA_SYNC_ENABLED='false' &&
 export HADOOP_USER_NAME='hadoop' &&
 export HIVE_USER='hadoop' &&

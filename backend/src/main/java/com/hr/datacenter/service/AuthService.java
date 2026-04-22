@@ -7,7 +7,6 @@ import com.hr.datacenter.util.PasswordUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -68,7 +67,7 @@ public class AuthService {
     /**
      * 用户注册
      */
-    public void register(String username, String password, String realName, String phone, String email, String roleCode) {
+    public void register(String username, String password, String realName, String phone, String email) {
         if (userService.existsByUsername(username)) {
             throw new BusinessException(409, "用户名已存在");
         }
@@ -81,7 +80,8 @@ public class AuthService {
         user.setEmail(email);
         user.setDeptId(1L);
         user.setStatus(1);
-        user.setRoleCode(StringUtils.hasText(roleCode) ? roleCode : "ROLE_EMPLOYEE");
+        // 前台注册统一授予普通员工角色，管理员角色由后台分配，避免越权注册。
+        user.setRoleCode("ROLE_EMPLOYEE");
         user.setCreateTime(LocalDateTime.now());
         user.setUpdateTime(LocalDateTime.now());
 

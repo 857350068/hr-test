@@ -15,8 +15,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class ReportTaskService extends ServiceImpl<ReportTaskMapper, ReportTask> {
@@ -29,6 +32,8 @@ public class ReportTaskService extends ServiceImpl<ReportTaskMapper, ReportTask>
     private MessageService messageService;
     @Autowired
     private UserService userService;
+    @Autowired
+    private ReportExportService reportExportService;
 
     @Scheduled(cron = "0 * * * * ?")
     public void executeDueTasks() {
@@ -37,11 +42,16 @@ public class ReportTaskService extends ServiceImpl<ReportTaskMapper, ReportTask>
         LocalDateTime now = LocalDateTime.now();
         for (ReportTask task : tasks) {
             if (shouldRun(task, now)) {
-                recordExecution(task, 1, buildFileName(task.getReportType()), "定时任务执行成功");
-                task.setLastRunTime(now);
-                this.updateById(task);
-                if (StringUtils.hasText(task.getShareTarget())) {
-                    shareToTargets(task.getTaskId(), task.getReportType(), task.getShareTarget());
+                try {
+                    ReportExportService.GeneratedReport generated = reportExportService.generateAndSaveReport(task.getReportType());
+                    recordExecution(task, 1, generated.getFileName(), "定时任务执行成功，文件路径: " + generated.getFilePath());
+                    task.setLastRunTime(now);
+                    this.updateById(task);
+                    if (StringUtils.hasText(task.getShareTarget())) {
+                        shareToTargets(task.getTaskId(), task.getReportType(), task.getShareTarget());
+                    }
+                } catch (Exception ex) {
+                    recordExecution(task, 0, null, "定时任务执行失败: " + ex.getMessage());
                 }
             }
         }
@@ -109,10 +119,52 @@ public class ReportTaskService extends ServiceImpl<ReportTaskMapper, ReportTask>
                 .last("LIMIT 20"));
     }
 
+    public List<Map<String, Object>> getLatestExecutionLogsWithFileStatus() {
+        List<ReportExecutionLog> logs = getLatestExecutionLogs();
+        return logs.stream().map(log -> {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("logId", log.getLogId());
+            row.put("taskId", log.getTaskId());
+            row.put("taskName", log.getTaskName());
+            row.put("reportType", log.getReportType());
+            row.put("fileName", log.getFileName());
+            row.put("status", log.getStatus());
+            row.put("message", log.getMessage());
+            row.put("runTime", log.getRunTime());
+            row.put("fileExists", reportExportService.existsReportFile(log.getFileName()));
+            return row;
+        }).collect(Collectors.toList());
+    }
+
     public List<ReportShareLog> getLatestShareLogs() {
         return shareLogService.list(new LambdaQueryWrapper<ReportShareLog>()
                 .orderByDesc(ReportShareLog::getShareTime)
                 .last("LIMIT 20"));
+    }
+
+    public String rebuildExecutionLogFile(Long logId) {
+        ReportExecutionLog log = executionLogService.getById(logId);
+        if (log == null) {
+            throw new IllegalArgumentException("执行记录不存在: " + logId);
+        }
+        if (!StringUtils.hasText(log.getReportType())) {
+            throw new IllegalArgumentException("执行记录缺少报表类型，无法重建");
+        }
+        try {
+            ReportExportService.GeneratedReport generated = reportExportService.generateAndSaveReport(log.getReportType());
+            log.setFileName(generated.getFileName());
+            log.setStatus(1);
+            log.setMessage("文件已重建，路径: " + generated.getFilePath());
+            log.setRunTime(LocalDateTime.now());
+            executionLogService.updateById(log);
+            return generated.getFileName();
+        } catch (Exception ex) {
+            log.setStatus(0);
+            log.setMessage("重建失败: " + ex.getMessage());
+            log.setRunTime(LocalDateTime.now());
+            executionLogService.updateById(log);
+            throw new IllegalStateException("重建失败", ex);
+        }
     }
 
     private boolean shouldRun(ReportTask task, LocalDateTime now) {
@@ -129,8 +181,4 @@ public class ReportTaskService extends ServiceImpl<ReportTaskMapper, ReportTask>
         }
     }
 
-    private String buildFileName(String reportType) {
-        String ts = LocalDateTime.now().toString().replace(":", "-");
-        return "report_" + (StringUtils.hasText(reportType) ? reportType : "general") + "_" + ts + ".csv";
-    }
 }

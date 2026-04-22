@@ -92,3 +92,12 @@ data-sync:
   fact-sync-cron: "0 0 * * * ?"
   # 聚合表：每日凌晨3点重新计算
   aggregation-sync-cron: "0 0 3 * * ?"
+
+project:
+  runtime:
+    mode-name: 标准数据中心模式
+    mode-desc: 真实Hive链路（MySQL业务库 + Hive分析库 + 同步任务）
+
+report:
+  export:
+    dir: report-exports

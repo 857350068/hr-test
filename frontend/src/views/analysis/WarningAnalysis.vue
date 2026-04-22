@@ -126,6 +126,7 @@ const gapStructure = ref([])
 const rawTurnoverRisk = ref([])
 const rawGapAnalysis = ref([])
 const rawGapStructure = ref([])
+const rawCostOverrun = ref([])
 const costOverrun = ref([])
 const loading = ref({ risk: false, gap: false, struct: false, cost: false })
 const deptTurnChart = ref(null)
@@ -173,7 +174,7 @@ onMounted(async () => {
         deptRate.value = b.data || []
         rawGapAnalysis.value = c.data || []
         rawGapStructure.value = d.data || []
-        costOverrun.value = e.data || []
+        rawCostOverrun.value = e.data || []
         applyFilters()
     } finally {
         loading.value = { risk: false, gap: false, struct: false, cost: false }
@@ -185,6 +186,12 @@ onMounted(async () => {
 function textMatch(val, keyword) {
     if (!keyword) return true
     return String(val ?? '').includes(keyword)
+}
+
+function textMatchOptional(val, keyword) {
+    if (!keyword) return true
+    if (val === undefined || val === null) return true
+    return String(val).includes(keyword)
 }
 
 function applyFilters() {
@@ -199,6 +206,11 @@ function applyFilters() {
     )
     gapStructure.value = rawGapStructure.value.filter((r) =>
         textMatch(r.department ?? r.DEPARTMENT, filters.value.department)
+    )
+    costOverrun.value = rawCostOverrun.value.filter((r) =>
+        textMatch(r.department ?? r.DEPARTMENT, filters.value.department) &&
+        textMatchOptional(r.position ?? r.POSITION, filters.value.position) &&
+        textMatchOptional(r.emp_no ?? r.EMP_NO ?? r.empNo, filters.value.empNo)
     )
 }
 

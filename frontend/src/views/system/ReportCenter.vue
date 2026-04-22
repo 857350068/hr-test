@@ -40,6 +40,48 @@
             <el-table-column prop="taskName" label="任务名" min-width="140" />
             <el-table-column prop="reportType" label="类型" width="100" />
             <el-table-column prop="fileName" label="文件名" min-width="160" show-overflow-tooltip />
+            <el-table-column label="文件状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="row.fileExists ? 'success' : 'danger'">
+                  {{ row.fileExists ? '存在' : '丢失' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="文件操作" width="150">
+              <template #default="{ row }">
+                <el-button
+                  size="small"
+                  type="primary"
+                  text
+                  :disabled="row.status !== 1 || !row.fileName || !row.fileExists"
+                  @click="handleDownloadLogFile(row)"
+                >
+                  下载
+                </el-button>
+                <el-button
+                  size="small"
+                  type="success"
+                  text
+                  :disabled="row.status !== 1 || !row.fileName || !row.fileExists"
+                  @click="handleOpenLogFile(row)"
+                >
+                  打开
+                </el-button>
+              </template>
+            </el-table-column>
+            <el-table-column label="重建" width="90">
+              <template #default="{ row }">
+                <el-button
+                  size="small"
+                  type="danger"
+                  text
+                  :disabled="row.status !== 1"
+                  @click="handleRebuildLogFile(row)"
+                >
+                  重建
+                </el-button>
+              </template>
+            </el-table-column>
             <el-table-column prop="status" label="状态" width="80">
               <template #default="{ row }">
                 <el-tag :type="row.status === 1 ? 'success' : 'danger'">{{ row.status === 1 ? '成功' : '失败' }}</el-tag>
@@ -89,10 +131,12 @@ import { exportMultiSheetExcel } from '@/utils/excel'
 import {
   addReportTask,
   deleteReportTask,
+  downloadGeneratedReportFile,
   downloadReportFile,
   getReportExecutionLogs,
   getReportShareLogs,
   getReportTaskList,
+  rebuildExecutionLogFile,
   shareReport,
   updateReportTask
 } from '@/api/report'
@@ -130,6 +174,51 @@ async function handleExport() {
 async function handleShare() {
   await shareReport(reportType.value || 'warning', shareTarget.value || 'default')
   ElMessage.success('分享成功')
+}
+
+async function handleDownloadLogFile(row) {
+  try {
+    const file = await downloadGeneratedReportFile(row.fileName, 'attachment')
+    triggerBlobDownload(file, row.fileName || 'report.csv')
+    ElMessage.success('文件下载成功')
+  } catch (error) {
+    console.error('下载执行记录文件失败:', error)
+    ElMessage.error('下载失败，文件可能已不存在')
+  }
+}
+
+async function handleOpenLogFile(row) {
+  try {
+    const file = await downloadGeneratedReportFile(row.fileName, 'inline')
+    const blobUrl = window.URL.createObjectURL(file)
+    window.open(blobUrl, '_blank')
+    setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60000)
+  } catch (error) {
+    console.error('打开执行记录文件失败:', error)
+    ElMessage.error('打开失败，文件可能已不存在')
+  }
+}
+
+async function handleRebuildLogFile(row) {
+  try {
+    await rebuildExecutionLogFile(row.logId)
+    ElMessage.success('执行记录文件重建成功')
+    await loadData()
+  } catch (error) {
+    console.error('重建执行记录文件失败:', error)
+    ElMessage.error('重建失败，请检查后端日志')
+  }
+}
+
+function triggerBlobDownload(file, filename) {
+  const blobUrl = window.URL.createObjectURL(file)
+  const link = document.createElement('a')
+  link.href = blobUrl
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  window.URL.revokeObjectURL(blobUrl)
 }
 
 function exportPageExcel() {

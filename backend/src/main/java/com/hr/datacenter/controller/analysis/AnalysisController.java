@@ -83,9 +83,13 @@ public class AnalysisController {
      * 获取组织健康度
      */
     @GetMapping("/org-efficiency/health")
-    public Result<Map<String, Object>> getOrganizationHealth() {
+    public Result<Map<String, Object>> getOrganizationHealth(
+            @RequestParam(required = false) String department,
+            @RequestParam(required = false) String position,
+            @RequestParam(required = false) String period,
+            @RequestParam(required = false) String empNo) {
         log.info("获取组织健康度");
-        Map<String, Object> data = orgEfficiencyService.getOrganizationHealth();
+        Map<String, Object> data = orgEfficiencyService.getOrganizationHealth(department, position, empNo, period);
         return Result.success(data);
     }
 
@@ -215,9 +219,9 @@ public class AnalysisController {
     }
 
     private List<Map<String, Object>> buildDashboardRows(String department, String position, String period, String empNo) {
-        Map<String, Object> orgHealth = orgEfficiencyService.getOrganizationHealth();
-        Map<String, Object> turnover = turnoverWarningService.getTurnoverWarningOverview();
-        Map<String, Object> gap = talentGapWarningService.getTalentGapWarningOverview();
+        Map<String, Object> orgHealth = orgEfficiencyService.getOrganizationHealth(department, position, empNo, period);
+        Map<String, Object> turnover = turnoverWarningService.getTurnoverWarningOverview(department, position, empNo, period);
+        Map<String, Object> gap = talentGapWarningService.getTalentGapWarningOverview(department, position, empNo, period);
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("筛选_部门", defaultText(department));
         row.put("筛选_岗位", defaultText(position));

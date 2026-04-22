@@ -3,6 +3,8 @@ package com.hr.datacenter.util;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.jackson.io.JacksonDeserializer;
+import io.jsonwebtoken.jackson.io.JacksonSerializer;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -63,6 +65,7 @@ public class JwtUtil {
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(key, SignatureAlgorithm.HS512)
+                .serializeToJsonWith(new JacksonSerializer<>())
                 .compact();
     }
 
@@ -74,6 +77,7 @@ public class JwtUtil {
             SecretKey key = getSigningKey();
             return Jwts.parserBuilder()
                     .setSigningKey(key)
+                    .deserializeJsonWith(new JacksonDeserializer<>())
                     .build()
                     .parseClaimsJws(token)
                     .getBody();

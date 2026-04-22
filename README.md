@@ -38,8 +38,10 @@ HrDataCenter/
 │   ├── package.json
 │   └── vite.config.js
 ├── database/                # 数据库脚本
-│   ├── mysql/              # MySQL数据库脚本
-│   └── hive/               # Hive数据库脚本
+│   ├── 1mysql/             # MySQL 脚本与补丁
+│   ├── 2hive/              # Hive 脚本与补丁
+│   ├── hr_datacenter_mysql_init.sql
+│   └── hr_datacenter_hive_init.sql
 ├── backend-legacy/          # 旧版后端 (数据分析中心)
 ├── frontend-legacy/         # 旧版前端 (数据分析中心)
 └── README.md
@@ -79,8 +81,13 @@ HrDataCenter/
 # 登录MySQL
 mysql -u root -p
 
-# 执行初始化脚本
-source backend/src/main/resources/sql/init.sql
+# 执行MySQL初始化脚本
+source database/hr_datacenter_mysql_init.sql
+```
+
+```bash
+# 初始化Hive（示例）
+hive -f database/hr_datacenter_hive_init.sql
 ```
 
 **默认测试账号:**
@@ -183,7 +190,34 @@ npm run build
 1. **数据库配置**: 请修改`backend/src/main/resources/application.yml`中的数据库连接信息
 2. **端口冲突**: 如果8080端口被占用,请修改后端配置文件中的`server.port`
 3. **跨域问题**: 前端已配置代理,开发环境下无需处理跨域
-4. **Hive配置**: 如需使用Hive功能,请先配置Hadoop和Hive环境
+4. **Hive配置**: 如需使用完整数据中心链路,请先配置Hadoop和Hive环境
+
+## 环境与口径说明（重要）
+
+- **默认模式（推荐答辩演示）**: 使用`application.yml`，`spring.datasource.hive`连接真实Hive，分析/预警走Hive数据源，同步服务可将MySQL业务数据同步至Hive。
+- **VM兼容模式**: 使用`application-vm.yml`时，`hive`数据源可回落到MySQL兼容链路，主要用于无Hive集群的本地联调或演示。
+- **答辩建议口径**: 业务模块（员工/考勤/培训等）是“数据采集源”；核心价值在“数据中心分析与预警展示”。
+
+### 答辩演示模式（前端一键开关）
+
+- 位置：登录后右上角导航栏（`答辩演示模式`）
+- 开启效果：弱化/隐藏非核心业务菜单，仅保留数据中心主链路菜单（总览、专题分析、数据治理）
+- 代码位置：`frontend/src/views/Layout.vue`
+- 本地持久化键：`localStorage.defenseModeEnabled`
+
+### 运行模式识别接口（后端）
+
+- 接口：`GET /api/system/runtime/profile`
+- 作用：返回当前运行模式、激活Profile、数据源识别结果（真实Hive/兼容模式）、同步开关状态
+- 代码位置：`backend/src/main/java/com/hr/datacenter/controller/system/RuntimeProfileController.java`
+
+## 菜单信息架构（已调整）
+
+- **数据中心总览**: 首页看板、分析看板、预警分析
+- **专题分析**: 组织效能、人才梯队、薪酬分析
+- **数据治理**: 数据分类、规则管理、模型管理、报表中心、操作日志、用户管理
+- **业务数据源**: 员工、考勤、请假、绩效、薪酬、培训、招聘
+- **个人与协同**: 消息通知、我的收藏
 
 ## 联系方式
 
@@ -199,6 +233,7 @@ npm run build
 - 部署说明和常见问题
 - API接口文档
 - 数据库表结构
+- 答辩逐条映射清单请查看 [答辩PPT-题目条目映射清单.md](答辩PPT-题目条目映射清单.md)
 
 ## 许可证
 

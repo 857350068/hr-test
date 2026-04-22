@@ -15,13 +15,6 @@
                 <el-form-item prop="email">
                     <el-input v-model="registerForm.email" placeholder="请输入邮箱" prefix-icon="Message" />
                 </el-form-item>
-                <el-form-item prop="roleCode">
-                    <el-select v-model="registerForm.roleCode" placeholder="请选择角色" style="width: 100%">
-                        <el-option label="普通员工" value="ROLE_EMPLOYEE" />
-                        <el-option label="部门负责人" value="ROLE_MANAGER" />
-                        <el-option label="HR管理员" value="ROLE_HR_ADMIN" />
-                    </el-select>
-                </el-form-item>
                 <el-form-item prop="password">
                     <el-input
                         v-model="registerForm.password"
@@ -70,7 +63,6 @@ const registerForm = reactive({
     realName: '',
     phone: '',
     email: '',
-    roleCode: 'ROLE_EMPLOYEE',
     password: '',
     confirmPassword: ''
 })
@@ -101,7 +93,6 @@ const rules = {
         { required: true, message: '请输入邮箱', trigger: 'blur' },
         { type: 'email', message: '邮箱格式不正确', trigger: 'blur' }
     ],
-    roleCode: [{ required: true, message: '请选择角色', trigger: 'change' }],
     password: [
         { required: true, message: '请输入密码', trigger: 'blur' },
         { min: 6, max: 20, message: '密码长度需在6-20位之间', trigger: 'blur' }
@@ -120,7 +111,6 @@ const handleRegister = () => {
                 realName: registerForm.realName,
                 phone: registerForm.phone,
                 email: registerForm.email,
-                roleCode: registerForm.roleCode,
                 password: registerForm.password
             })
             ElMessage.success('注册成功，请登录')

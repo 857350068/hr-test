@@ -20,6 +20,9 @@
                     <el-input v-model="filters.empNo" placeholder="员工编号筛选" clearable />
                 </el-form-item>
                 <el-form-item>
+                    <el-button type="primary" @click="applyFilters">查询</el-button>
+                </el-form-item>
+                <el-form-item>
                     <el-button type="primary" @click="exportCurrent">导出当前筛选</el-button>
                 </el-form-item>
                 <el-form-item>
@@ -29,6 +32,28 @@
                     <el-button type="warning" @click="favoriteCurrent">收藏当前看板配置</el-button>
                 </el-form-item>
             </el-form>
+            <div class="filter-effect-wrap">
+                <div class="filter-tags">
+                    <el-tag v-if="!hasActiveFilters" type="info">当前筛选：全部数据</el-tag>
+                    <el-tag v-for="item in activeFilterTags" :key="item.key" type="success" style="margin-right: 8px">
+                        {{ item.label }}：{{ item.value }}
+                    </el-tag>
+                </div>
+                <div class="trace-text">最近查询：{{ lastQueryTime || '未查询' }}</div>
+            </div>
+            <el-alert
+                class="caliber-alert"
+                type="info"
+                :closable="false"
+                show-icon
+                :title="'口径说明：看板KPI、导出CSV、收藏筛选均使用同一组筛选参数（部门/岗位/周期/员工编号）'"
+                :description="caliberDescription"
+            />
+            <el-collapse v-model="evidencePanels" class="evidence-collapse">
+                <el-collapse-item title="本次请求参数与返回摘要（JSON）" name="request-json">
+                    <pre class="evidence-json">{{ requestEvidenceJson }}</pre>
+                </el-collapse-item>
+            </el-collapse>
         </el-card>
 
         <!-- 组织效能概览 -->
@@ -169,11 +194,66 @@ const orgHealth = ref({})
 const turnoverOverview = ref({})
 const talentGapOverview = ref({})
 const filters = ref({ department: '', position: '', period: 'month', empNo: '' })
+const lastQueryTime = ref('')
+const lastAppliedFilters = ref({})
+const evidencePanels = ref(['request-json'])
 
 const warningCount = computed(() => {
     return (turnoverOverview.value.highRiskCount || 0) + 
            (turnoverOverview.value.mediumRiskCount || 0) + 
            (talentGapOverview.value.urgentGapCount || 0)
+})
+
+const activeFilterTags = computed(() => {
+    const data = []
+    if (lastAppliedFilters.value.department) {
+        data.push({ key: 'department', label: '部门', value: lastAppliedFilters.value.department })
+    }
+    if (lastAppliedFilters.value.position) {
+        data.push({ key: 'position', label: '岗位', value: lastAppliedFilters.value.position })
+    }
+    if (lastAppliedFilters.value.period) {
+        const periodMap = { month: '月度', quarter: '季度', year: '年度' }
+        data.push({ key: 'period', label: '统计周期', value: periodMap[lastAppliedFilters.value.period] || lastAppliedFilters.value.period })
+    }
+    if (lastAppliedFilters.value.empNo) {
+        data.push({ key: 'empNo', label: '员工编号', value: lastAppliedFilters.value.empNo })
+    }
+    return data
+})
+
+const hasActiveFilters = computed(() => activeFilterTags.value.length > 0)
+const caliberDescription = computed(() => {
+    return hasActiveFilters.value
+        ? `当前已生效筛选项：${activeFilterTags.value.map(item => `${item.label}=${item.value}`).join('，')}`
+        : '当前未设置筛选条件，展示全量口径数据。'
+})
+
+const requestEvidenceJson = computed(() => {
+    const payload = {
+        queryAt: lastQueryTime.value || null,
+        requestParams: {
+            department: lastAppliedFilters.value.department || null,
+            position: lastAppliedFilters.value.position || null,
+            period: lastAppliedFilters.value.period || null,
+            empNo: lastAppliedFilters.value.empNo || null
+        },
+        responseSummary: {
+            orgHealth: {
+                healthScore: orgHealth.value.healthScore ?? null,
+                stabilityRate: orgHealth.value.stabilityRate ?? null,
+                turnoverRate: orgHealth.value.turnoverRate ?? null,
+                highEducationRate: orgHealth.value.highEducationRate ?? null
+            },
+            warningOverview: {
+                turnoverHighRisk: turnoverOverview.value.highRiskCount ?? null,
+                turnoverMediumRisk: turnoverOverview.value.mediumRiskCount ?? null,
+                talentGapUrgent: talentGapOverview.value.urgentGapCount ?? null,
+                talentGapTotal: talentGapOverview.value.totalGapCount ?? null
+            }
+        }
+    }
+    return JSON.stringify(payload, null, 2)
 })
 
 onMounted(async () => {
@@ -182,23 +262,30 @@ onMounted(async () => {
 
 async function loadDashboardData() {
     try {
+        const params = buildFilterParams()
+        lastAppliedFilters.value = { ...params }
         // 加载组织健康度
-        const healthRes = await getOrganizationHealth()
+        const healthRes = await getOrganizationHealth(params)
         orgHealth.value = healthRes.data
         
         // 加载流失预警概览
-        const turnoverRes = await getTurnoverWarningOverview()
+        const turnoverRes = await getTurnoverWarningOverview(params)
         turnoverOverview.value = turnoverRes.data
         
         // 加载人才缺口预警概览
-        const gapRes = await getTalentGapWarningOverview()
+        const gapRes = await getTalentGapWarningOverview(params)
         talentGapOverview.value = gapRes.data
+        lastQueryTime.value = formatDateTime(new Date())
     } catch (error) {
         console.error('加载看板数据失败:', error)
     }
 }
 
 async function refreshOrgData() {
+    await loadDashboardData()
+}
+
+async function applyFilters() {
     await loadDashboardData()
 }
 
@@ -210,6 +297,21 @@ function getHealthColor(score) {
 
 function goToModule(module) {
     router.push(`/analysis/${module}`)
+}
+
+function buildFilterParams() {
+    return {
+        department: filters.value.department || undefined,
+        position: filters.value.position || undefined,
+        period: filters.value.period || undefined,
+        empNo: filters.value.empNo || undefined
+    }
+}
+
+function formatDateTime(date) {
+    const pad = (num) => String(num).padStart(2, '0')
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+        `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 
 async function favoriteCurrent() {
@@ -226,10 +328,7 @@ async function exportCurrent() {
     try {
         const file = await downloadAnalysisExport({
             module: 'dashboard',
-            department: filters.value.department || undefined,
-            position: filters.value.position || undefined,
-            period: filters.value.period || undefined,
-            empNo: filters.value.empNo || undefined
+            ...buildFilterParams()
         })
         const blobUrl = window.URL.createObjectURL(file)
         const link = document.createElement('a')
@@ -400,5 +499,45 @@ h2 {
 .module-desc {
     font-size: 14px;
     color: #666;
+}
+
+.filter-effect-wrap {
+    margin-top: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.filter-tags {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    row-gap: 8px;
+}
+
+.trace-text {
+    color: #606266;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.caliber-alert {
+    margin-top: 10px;
+}
+
+.evidence-collapse {
+    margin-top: 10px;
+}
+
+.evidence-json {
+    margin: 0;
+    background: #111827;
+    color: #e5e7eb;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-x: auto;
 }
 </style>

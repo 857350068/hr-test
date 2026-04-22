@@ -37,10 +37,11 @@ export function getStaffingAnalysis() {
 /**
  * 获取组织健康度
  */
-export function getOrganizationHealth() {
+export function getOrganizationHealth(params = {}) {
   return request({
     url: '/analysis/org-efficiency/health',
-    method: 'get'
+    method: 'get',
+    params
   })
 }
 

@@ -1,8 +1,21 @@
 -- 2026-04-16 增量补丁：角色字段、招聘模块
 USE `hr_datacenter`;
 
-ALTER TABLE `sys_user`
-    ADD COLUMN IF NOT EXISTS `role_code` VARCHAR(50) NOT NULL DEFAULT 'ROLE_EMPLOYEE' COMMENT '角色编码' AFTER `email`;
+SET @col_exists := (
+    SELECT COUNT(*)
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = 'hr_datacenter'
+      AND TABLE_NAME = 'sys_user'
+      AND COLUMN_NAME = 'role_code'
+);
+SET @alter_sql := IF(
+    @col_exists = 0,
+    'ALTER TABLE `sys_user` ADD COLUMN `role_code` VARCHAR(50) NOT NULL DEFAULT ''ROLE_EMPLOYEE'' COMMENT ''角色编码'' AFTER `email`',
+    'SELECT ''skip: sys_user.role_code already exists'''
+);
+PREPARE stmt FROM @alter_sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 UPDATE `sys_user` SET `role_code` = 'ROLE_ADMIN' WHERE `username` = 'admin';
 UPDATE `sys_user` SET `role_code` = 'ROLE_HR_ADMIN' WHERE `username` = 'hr001';

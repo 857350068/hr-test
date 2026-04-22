@@ -78,8 +78,7 @@ public class AuthController {
                     registerRequest.getPassword(),
                     registerRequest.getRealName(),
                     registerRequest.getPhone(),
-                    registerRequest.getEmail(),
-                    registerRequest.getRoleCode()
+                    registerRequest.getEmail()
             );
             return Result.success("注册成功", "");
         } catch (Exception e) {

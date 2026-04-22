@@ -36,18 +36,24 @@ public class TurnoverWarningService {
      * @return 流失风险员工列表
      */
     public List<Map<String, Object>> getTurnoverRiskAnalysis() {
+        return getTurnoverRiskAnalysis(null, null, null);
+    }
+
+    public List<Map<String, Object>> getTurnoverRiskAnalysis(String department, String position, String empNo) {
         log.info("开始分析员工流失风险");
         
         JdbcTemplate hiveJdbc = new JdbcTemplate(hiveDataSource);
         String latestDt = getLatestDt(hiveJdbc);
         
         List<Map<String, Object>> result = new ArrayList<>();
+        List<Object> params = new ArrayList<>();
+        String filterClause = buildEmployeeFilterClause(latestDt, department, position, empNo, params);
         
         // 查询所有在职员工
         String sql = "SELECT emp_id, emp_no, emp_name, department, position, " +
                 "current_salary as salary, hire_date, education, DATEDIFF(CURRENT_DATE, hire_date) as tenure_days " +
-                "FROM dim_employee " + buildLatestDtWhereClause(latestDt) + "AND status = 1";
-        List<Map<String, Object>> employees = queryForListWithLatestDt(hiveJdbc, sql, latestDt);
+                "FROM dim_employee " + filterClause + "AND status = 1";
+        List<Map<String, Object>> employees = hiveJdbc.queryForList(sql, params.toArray());
         
         for (Map<String, Object> emp : employees) {
             double riskScore = calculateTurnoverRisk(emp);
@@ -98,22 +104,30 @@ public class TurnoverWarningService {
      * @return 预警概览数据
      */
     public Map<String, Object> getTurnoverWarningOverview() {
+        return getTurnoverWarningOverview(null, null, null, null);
+    }
+
+    public Map<String, Object> getTurnoverWarningOverview(String department, String position, String empNo, String period) {
         log.info("开始生成流失预警概览");
         
         JdbcTemplate hiveJdbc = new JdbcTemplate(hiveDataSource);
         String latestDt = getLatestDt(hiveJdbc);
         
         Map<String, Object> result = new HashMap<>();
+        List<Object> baseParams = new ArrayList<>();
+        String whereClause = buildEmployeeFilterClause(latestDt, department, position, empNo, baseParams);
+        List<Object> turnoverParams = new ArrayList<>(baseParams);
+        String periodFilter = appendTurnoverPeriodFilter(turnoverParams, period);
         
         // 整体流失率
         String overallSql = "SELECT " +
                 "COUNT(CASE WHEN resign_date IS NOT NULL THEN 1 END) * 100.0 / COUNT(*) as turnover_rate " +
-                "FROM dim_employee " + buildLatestDtWhereClause(latestDt);
-        Double turnoverRate = queryForObjectWithLatestDt(hiveJdbc, overallSql, latestDt);
+                "FROM dim_employee " + whereClause + periodFilter;
+        Double turnoverRate = queryForObjectWithParams(hiveJdbc, overallSql, turnoverParams);
         result.put("overallTurnoverRate", turnoverRate);
         
         // 风险员工统计
-        List<Map<String, Object>> riskEmployees = getTurnoverRiskAnalysis();
+        List<Map<String, Object>> riskEmployees = getTurnoverRiskAnalysis(department, position, empNo);
         long highRiskCount = riskEmployees.stream()
                 .filter(e -> "高".equals(e.get("riskLevel")))
                 .count();
@@ -129,12 +143,12 @@ public class TurnoverWarningService {
         String trendSql = "SELECT YEAR(resign_date) as year, MONTH(resign_date) as month, " +
                 "COUNT(*) as resign_count " +
                 "FROM dim_employee " +
-                buildLatestDtWhereClause(latestDt) +
+                whereClause +
                 "AND resign_date IS NOT NULL " +
                 "GROUP BY YEAR(resign_date), MONTH(resign_date) " +
                 "ORDER BY year DESC, month DESC " +
                 "LIMIT 6";
-        List<Map<String, Object>> trend = queryForListWithLatestDt(hiveJdbc, trendSql, latestDt);
+        List<Map<String, Object>> trend = hiveJdbc.queryForList(trendSql, baseParams.toArray());
         result.put("turnoverTrend", trend);
         
         log.info("流失预警概览生成完成");
@@ -277,9 +291,52 @@ public class TurnoverWarningService {
         return StringUtils.hasText(latestDt) ? hiveJdbc.queryForList(sql, latestDt) : hiveJdbc.queryForList(sql);
     }
 
-    private Double queryForObjectWithLatestDt(JdbcTemplate hiveJdbc, String sql, String latestDt) {
-        return StringUtils.hasText(latestDt)
-                ? hiveJdbc.queryForObject(sql, Double.class, latestDt)
-                : hiveJdbc.queryForObject(sql, Double.class);
+    private String buildEmployeeFilterClause(String latestDt,
+                                             String department,
+                                             String position,
+                                             String empNo,
+                                             List<Object> params) {
+        StringBuilder whereClause = new StringBuilder("WHERE 1=1 ");
+        if (StringUtils.hasText(latestDt)) {
+            whereClause.append("AND dt = ? ");
+            params.add(latestDt);
+        }
+        if (StringUtils.hasText(department)) {
+            whereClause.append("AND department = ? ");
+            params.add(department);
+        }
+        if (StringUtils.hasText(position)) {
+            whereClause.append("AND position = ? ");
+            params.add(position);
+        }
+        if (StringUtils.hasText(empNo)) {
+            whereClause.append("AND emp_no LIKE ? ");
+            params.add("%" + empNo + "%");
+        }
+        return whereClause.toString();
+    }
+
+    private String appendTurnoverPeriodFilter(List<Object> params, String period) {
+        if (!StringUtils.hasText(period)) {
+            return "";
+        }
+        String normalized = period.trim().toLowerCase();
+        if ("year".equals(normalized)) {
+            params.add(java.sql.Date.valueOf(java.time.LocalDate.now().minusYears(1)));
+            return " AND (resign_date IS NULL OR resign_date >= ?) ";
+        }
+        if ("quarter".equals(normalized)) {
+            params.add(java.sql.Date.valueOf(java.time.LocalDate.now().minusMonths(3)));
+            return " AND (resign_date IS NULL OR resign_date >= ?) ";
+        }
+        if ("month".equals(normalized)) {
+            params.add(java.sql.Date.valueOf(java.time.LocalDate.now().minusMonths(1)));
+            return " AND (resign_date IS NULL OR resign_date >= ?) ";
+        }
+        return "";
+    }
+
+    private Double queryForObjectWithParams(JdbcTemplate hiveJdbc, String sql, List<Object> params) {
+        return hiveJdbc.queryForObject(sql, Double.class, params.toArray());
     }
 }

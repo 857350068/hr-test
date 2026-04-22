@@ -1,6 +1,6 @@
 <template>
     <div class="dashboard">
-        <h2>首页看板</h2>
+        <h2>数据中心首页看板</h2>
 
         <!-- 统计卡片 -->
         <el-row :gutter="20" class="stats-row">
@@ -63,13 +63,13 @@
             <el-col :span="12">
                 <el-card class="welcome-card" shadow="hover">
                     <h3>欢迎使用人力资源数据中心</h3>
-                    <p>本系统基于 SpringBoot + Vue3 + Hadoop + Hive 构建，提供员工、考勤、绩效、薪酬、培训、数据分析与系统管理等功能。</p>
+                    <p>本系统采用“业务数据源 + 数据治理 + Hive分析展示”架构。员工、考勤、绩效、薪酬、培训等模块负责沉淀数据，分析与预警模块提供决策支持。</p>
                 </el-card>
             </el-col>
             <el-col :span="12">
                 <el-card class="welcome-card link-card" shadow="hover" @click="goAnalysis">
-                    <h3>数据分析中心</h3>
-                    <p>查看组织效能、人才梯队、薪酬分析、流失与人才缺口预警等 Hive 分析报表。</p>
+                    <h3>进入数据中心分析主链路</h3>
+                    <p>查看组织效能、人才梯队、薪酬分析、流失/缺口/成本预警等核心指标，支持筛选、导出与收藏。</p>
                     <div class="link-hint">点击进入数据分析 →</div>
                 </el-card>
             </el-col>
