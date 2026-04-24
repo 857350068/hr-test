@@ -30,4 +30,9 @@ if [[ -f "${UPLOAD_DIR}/update_user_passwords.sql" ]]; then
     "${MYSQL_DB}" < "${UPLOAD_DIR}/update_user_passwords.sql"
 fi
 
+if [[ -f "${UPLOAD_DIR}/mysql_compat_sys_user_role_20260423.sql" ]]; then
+  mysql "${MYSQL_OPTS[@]}" \
+    "${MYSQL_DB}" < "${UPLOAD_DIR}/mysql_compat_sys_user_role_20260423.sql"
+fi
+
 echo "MySQL initialization finished."

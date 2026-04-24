@@ -1,7 +1,7 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="HrDataCenterApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
     <option name="ALTERNATIVE_JRE_PATH" value="1.8" />
-    <module name="hr-data-center" />
+    <module name="HrDataCenter" />
     <target name="root@192.168.116.131:22" />
     <option name="SPRING_BOOT_MAIN_CLASS" value="com.hr.datacenter.HrDataCenterApplication" />
     <method v="2">

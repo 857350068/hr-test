@@ -10,8 +10,11 @@ param(
     [string]$MysqlDb = "hr_datacenter",
     [string]$MysqlPassword = "123456",
     [string]$JwtSecret = "hrDataCenterSecretKey2024ForJwtTokenGenerationAndAuthenticationWithSecure512BitKeyLength!!",
-    [string]$InitDatabase = "true"
+    [string]$InitDatabase = "true",
+    [string]$ResetMysqlDatabase = "true"
 )
+
+# ResetMysqlDatabase=true：VM 上先备份再 DROP DATABASE hr_datacenter，再导入 database/（见 run-on-vm.sh）
 
 $ErrorActionPreference = "Stop"
 
@@ -21,7 +24,7 @@ function Get-SshArgs {
         [string]$RootPassword,
         [string]$AskpassScriptPath
     )
-    $args = @(
+    $sshExtra = @(
         "-o", "StrictHostKeyChecking=accept-new",
         "-o", "ConnectTimeout=15"
     )
@@ -31,17 +34,17 @@ function Get-SshArgs {
         $env:SSH_ASKPASS = $AskpassScriptPath
         $env:SSH_ASKPASS_REQUIRE = "force"
         $env:DISPLAY = "dummy"
-        $args += @(
+        $sshExtra += @(
             "-o", "PreferredAuthentications=password",
             "-o", "PubkeyAuthentication=no"
         )
-        return $args
+        return $sshExtra
     }
 
     if (-not [string]::IsNullOrWhiteSpace($SshKeyPath)) {
-        $args += @("-i", $SshKeyPath, "-o", "BatchMode=yes")
+        $sshExtra += @("-i", $SshKeyPath, "-o", "BatchMode=yes")
     }
-    return $args
+    return $sshExtra
 }
 
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
@@ -52,6 +55,10 @@ $askpassScript = Join-Path $PSScriptRoot "askpass.cmd"
 $initDatabaseNormalized = $InitDatabase.ToString().Trim().ToLower()
 if ($initDatabaseNormalized -notin @("true", "false")) {
     throw "InitDatabase must be true or false."
+}
+$resetMysqlNormalized = $ResetMysqlDatabase.ToString().Trim().ToLower()
+if ($resetMysqlNormalized -notin @("true", "false")) {
+    throw "ResetMysqlDatabase must be true or false."
 }
 
 Write-Host "[1/8] Build backend jar..."
@@ -83,14 +90,14 @@ Write-Host "[3/8] Prepare SSH arguments..."
 $sshArgs = Get-SshArgs -SshKeyPath $SshKeyPath -RootPassword $RootPassword -AskpassScriptPath $askpassScript
 $vm = "$VmUser@$VmHost"
 
-Write-Host "[4/8] Create remote upload directory..."
-& ssh @sshArgs $vm "mkdir -p $RemoteDir"
+Write-Host "[4/8] Create/clean remote upload directory..."
+& ssh @sshArgs $vm "mkdir -p $RemoteDir && rm -rf $RemoteDir/frontend-dist $RemoteDir/database"
 
 Write-Host "[5/8] Upload backend and frontend artifacts..."
 & scp @sshArgs $jar.FullName "$vm`:$RemoteDir/backend.jar"
 & scp @sshArgs -r $frontendDist "$vm`:$RemoteDir/frontend-dist"
 if (Test-Path $databaseDir) {
-    & scp @sshArgs -r $databaseDir "$vm`:$RemoteDir/database"
+    & scp @sshArgs -r $databaseDir "$vm`:$RemoteDir/"
 }
 & scp @sshArgs (Join-Path $PSScriptRoot "run-on-vm.sh") "$vm`:$RemoteDir/run-on-vm.sh"
 & scp @sshArgs (Join-Path $PSScriptRoot "nginx-hrdatacenter.conf") "$vm`:$RemoteDir/nginx-hrdatacenter.conf"
@@ -106,6 +113,7 @@ export MYSQL_USER='$MysqlUser' &&
 export MYSQL_DB='$MysqlDb' &&
 export JWT_SECRET='$JwtSecret' &&
 export INIT_DATABASE='$initDatabaseNormalized' &&
+export RESET_MYSQL_DB='$resetMysqlNormalized' &&
 export DATA_SYNC_ENABLED='false' &&
 export HADOOP_USER_NAME='hadoop' &&
 export HIVE_USER='hadoop' &&

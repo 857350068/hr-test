@@ -14,6 +14,7 @@ HIVE_DB="${HIVE_DB:-hr_datacenter_dw}"
 HIVE_USER="${HIVE_USER:-hadoop}"
 HIVE_PASSWORD="${HIVE_PASSWORD:-}"
 INIT_DATABASE="${INIT_DATABASE:-true}"
+RESET_MYSQL_DB="${RESET_MYSQL_DB:-false}"
 DATA_SYNC_ENABLED="${DATA_SYNC_ENABLED:-false}"
 HADOOP_USER_NAME="${HADOOP_USER_NAME:-hadoop}"
 JAVA_BIN="${JAVA_BIN:-}"
@@ -65,17 +66,34 @@ if [[ "${INIT_DATABASE}" == "true" ]]; then
   if ! command -v mysql >/dev/null 2>&1; then
     echo "未检测到 mysql 客户端，跳过数据库初始化。"
   elif [[ -d "${APP_DIR}/upload/database" ]]; then
+    mkdir -p "${APP_DIR}/logs/mysql-backups"
+    TS="$(date +%Y%m%d_%H%M%S)"
+    if [[ "${RESET_MYSQL_DB}" == "true" ]]; then
+      echo "RESET_MYSQL_DB=true：先备份同名库（若存在），再 DROP 并重建 ${MYSQL_DB}"
+      mysqldump -h"${MYSQL_HOST}" -P"${MYSQL_PORT}" -u"${MYSQL_USER}" -p"${MYSQL_PASSWORD}" \
+        --single-transaction --routines --triggers "${MYSQL_DB}" \
+        > "${APP_DIR}/logs/mysql-backups/backup_${MYSQL_DB}_${TS}.sql" 2>/dev/null || true
+      "${MYSQL_CMD[@]}" -e "DROP DATABASE IF EXISTS \`${MYSQL_DB}\`;"
+    fi
     "${MYSQL_CMD[@]}" -e \
-      "CREATE DATABASE IF NOT EXISTS ${MYSQL_DB} DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+      "CREATE DATABASE IF NOT EXISTS \`${MYSQL_DB}\` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
     "${MYSQL_CMD[@]}" "${MYSQL_DB}" < "${APP_DIR}/upload/database/hr_datacenter_mysql_init.sql"
     if [[ -f "${APP_DIR}/upload/database/1mysql/insert_data.sql" ]]; then
       "${MYSQL_CMD[@]}" "${MYSQL_DB}" < "${APP_DIR}/upload/database/1mysql/insert_data.sql"
+    fi
+    if [[ -f "${APP_DIR}/upload/database/1mysql/insert_large_data.sql" ]]; then
+      echo "导入大体量演示数据（可能较慢）..."
+      "${MYSQL_CMD[@]}" "${MYSQL_DB}" < "${APP_DIR}/upload/database/1mysql/insert_large_data.sql"
     fi
     if [[ -f "${APP_DIR}/upload/database/mysql_patch_20260416.sql" ]]; then
       "${MYSQL_CMD[@]}" "${MYSQL_DB}" < "${APP_DIR}/upload/database/mysql_patch_20260416.sql"
     fi
     if [[ -f "${APP_DIR}/upload/database/update_user_passwords.sql" ]]; then
       "${MYSQL_CMD[@]}" "${MYSQL_DB}" < "${APP_DIR}/upload/database/update_user_passwords.sql"
+    fi
+    if [[ -f "${APP_DIR}/upload/database/mysql_compat_sys_user_role_20260423.sql" ]]; then
+      echo "执行 RBAC 兼容补丁（sys_user_role / id / password_hash / data_scope，需在补数与改密之后）..."
+      "${MYSQL_CMD[@]}" "${MYSQL_DB}" < "${APP_DIR}/upload/database/mysql_compat_sys_user_role_20260423.sql"
     fi
   else
     echo "未找到 ${APP_DIR}/upload/database，跳过数据库初始化。"

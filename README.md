@@ -40,8 +40,11 @@ HrDataCenter/
 ├── database/                # 数据库脚本
 │   ├── 1mysql/             # MySQL 脚本与补丁
 │   ├── 2hive/              # Hive 脚本与补丁
+│   ├── dev/                # 开发/测试用 SQL（非生产初始化）
 │   ├── hr_datacenter_mysql_init.sql
 │   └── hr_datacenter_hive_init.sql
+├── docs/                    # 项目文档（按用途分子目录，见 docs/README.md）
+├── scripts/                 # 部署与运维脚本（含 deploy_db、leave-test 等）
 ├── backend-legacy/          # 旧版后端 (数据分析中心)
 ├── frontend-legacy/         # 旧版前端 (数据分析中心)
 └── README.md
@@ -135,7 +138,7 @@ npm run build
 
 ## 功能模块
 
-### 已实现功能（与 `项目文档.md` 一致）
+### 已实现功能（与 `docs/06-项目总览/项目文档.md` 一致）
 - ✅ 用户登录认证（JWT + 前端 Bearer）
 - ✅ 用户注册（跳转登录并回填用户名）
 - ✅ 个人中心（资料维护、密码修改）
@@ -222,11 +225,11 @@ npm run build
 ## 联系方式
 
 - 项目地址: d:\HrDataCenter
-- 问题反馈: 请查看项目文档
+- 问题反馈: 请查看 `docs/06-项目总览/项目文档.md` 或 `docs/README.md`
 
 ## 详细文档
 
-完整的项目文档请查看 [项目文档.md](项目文档.md)，包含：
+完整的项目文档请查看 [docs/06-项目总览/项目文档.md](docs/06-项目总览/项目文档.md)；全部文档索引见 [docs/README.md](docs/README.md)。主文档包含：
 - 详细的技术架构说明
 - 完整的功能模块介绍
 - 开发指南和代码规范

@@ -9,10 +9,10 @@ logs
 node_modules/
 dist/
 
-# Test files
-test_leave_api.bat
-test_leave_api.sh
-test_leave_functionality.sql
+# Test files（仅忽略仓库根目录旧路径；归类后见 scripts/leave-test 与 database/dev）
+/test_leave_api.bat
+/test_leave_api.sh
+/test_leave_functionality.sql
 
 # Report files
 修复报告.md

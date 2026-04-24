@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "skills-vote": {
+      "source": "MemTensor/skills-vote",
+      "sourceType": "github",
+      "computedHash": "e7021d42ba84819805d9480e2e54cda195957ce10ad61488b78cf22a95457a1d"
+    }
+  }
+}

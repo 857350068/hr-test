@@ -6,16 +6,16 @@
 USE hr_datacenter;
 
 -- 更新管理员账号 admin (密码: 123456)
-UPDATE sys_user SET password = '$2a$10$FdfhJ8LfmYT.mWXFa5Ba3.niJvVgJMxmM5lrPpsxxpDXeSom7Mr5C'
+UPDATE sys_user SET password = '$2a$10$Q/O3LlppfZihAEQ86mTJAOg2tf1TSBU9XKX3vLuAmvLn4tOpZt1Iy'
 WHERE username = 'admin';
 
 -- 更新HR账号 hr001 (密码: 123456)
-UPDATE sys_user SET password = '$2a$10$FdfhJ8LfmYT.mWXFa5Ba3.niJvVgJMxmM5lrPpsxxpDXeSom7Mr5C'
+UPDATE sys_user SET password = '$2a$10$Q/O3LlppfZihAEQ86mTJAOg2tf1TSBU9XKX3vLuAmvLn4tOpZt1Iy'
 WHERE username = 'hr001';
 
 -- 添加更多测试用户（可选）
 -- INSERT INTO sys_user (username, password, real_name, dept_id, phone, email, status) VALUES
--- ('test001', '$2a$10$FdfhJ8LfmYT.mWXFa5Ba3.niJvVgJMxmM5lrPpsxxpDXeSom7Mr5C', '测试用户', 1, '13800138002', 'test001@hrdatacenter.com', 1);
+-- ('test001', '$2a$10$Q/O3LlppfZihAEQ86mTJAOg2tf1TSBU9XKX3vLuAmvLn4tOpZt1Iy', '测试用户', 1, '13800138002', 'test001@hrdatacenter.com', 1);
 
 COMMIT;
 
